@@ -491,6 +491,32 @@
     margin-bottom: 8px;
     min-height: 15px;
   }
+  .attribution {
+    font-size: 11px;
+    color: var(--sub-text);
+    text-align: center;
+    padding: 0 0 12px;
+    line-height: 1.6;
+  }
+  .attribution a { color: var(--sub-text); }
+  .btn-sl {
+    width: 100%;
+    background: var(--card-bg);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 0;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+  }
+  .btn-sl:disabled { opacity: 0.5; }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sub-text);
+    margin-bottom: 8px;
+  }
   .card-pref {
     display: inline-block;
     font-size: 11px;
@@ -541,6 +567,9 @@
     <button id="importBtn">バックアップを読み込む</button>
     <input type="file" id="importFile" accept="application/json">
   </div>
+  <div class="attribution">
+    公演情報・セトリの一部は <a href="https://www.setlist.fm/" target="_blank" rel="noopener">setlist.fm</a> から取得しています。
+  </div>
 </main>
 
 <button class="fab" id="addFab">＋</button>
@@ -557,6 +586,10 @@
         <div class="sp-note" id="spArtistNote"></div>
       </div>
       <div class="field">
+        <label>ライブ名・ツアー名</label>
+        <input type="text" id="fTitle" placeholder="例: THE FIRST TAKE STAGE">
+      </div>
+      <div class="field">
         <label>日付 *</label>
         <input type="date" id="fDate" required>
       </div>
@@ -568,6 +601,11 @@
         <label>都道府県</label>
         <select id="fPref"></select>
         <div class="field-hint" id="fPrefHint">会場名から自動で候補を入れます。違っていれば選び直してください。</div>
+      </div>
+      <div class="field">
+        <button type="button" class="btn-sl" id="slFetchBtn">📅 この日付の公演を探して自動入力</button>
+        <div class="sp-results" id="slResults"></div>
+        <div class="sp-note" id="slNote"></div>
       </div>
       <div class="field">
         <label>参考リンク（livefans.jp のページなど）</label>
@@ -725,6 +763,135 @@
       if (v.includes(needle)) return pref;
     }
     return '';
+  }
+
+  // ---------- setlist.fm（公演の自動入力） ----------
+  // Cloudflare WorkerのURL。空のままだと公演検索は無効（アプリの他の機能は普通に動く）。
+  const SETLIST_PROXY = 'https://dry-recipe-797b.haruto20030410.workers.dev';
+
+  // setlist.fmは会場の都道府県を英語名で持っているため、対応表で突き合わせる
+  const PREF_EN = {
+    '北海道': 'Hokkaido', '青森県': 'Aomori', '岩手県': 'Iwate', '宮城県': 'Miyagi',
+    '秋田県': 'Akita', '山形県': 'Yamagata', '福島県': 'Fukushima', '茨城県': 'Ibaraki',
+    '栃木県': 'Tochigi', '群馬県': 'Gunma', '埼玉県': 'Saitama', '千葉県': 'Chiba',
+    '東京都': 'Tokyo', '神奈川県': 'Kanagawa', '新潟県': 'Niigata', '富山県': 'Toyama',
+    '石川県': 'Ishikawa', '福井県': 'Fukui', '山梨県': 'Yamanashi', '長野県': 'Nagano',
+    '岐阜県': 'Gifu', '静岡県': 'Shizuoka', '愛知県': 'Aichi', '三重県': 'Mie',
+    '滋賀県': 'Shiga', '京都府': 'Kyoto', '大阪府': 'Osaka', '兵庫県': 'Hyogo',
+    '奈良県': 'Nara', '和歌山県': 'Wakayama', '鳥取県': 'Tottori', '島根県': 'Shimane',
+    '岡山県': 'Okayama', '広島県': 'Hiroshima', '山口県': 'Yamaguchi', '徳島県': 'Tokushima',
+    '香川県': 'Kagawa', '愛媛県': 'Ehime', '高知県': 'Kochi', '福岡県': 'Fukuoka',
+    '佐賀県': 'Saga', '長崎県': 'Nagasaki', '熊本県': 'Kumamoto', '大分県': 'Oita',
+    '宮崎県': 'Miyazaki', '鹿児島県': 'Kagoshima', '沖縄県': 'Okinawa'
+  };
+
+  // setlist.fmは長音記号付きで返すことがある（兵庫→Hyōgo、大阪→Ōsaka）。
+  // 比較前に記号を落として揃える。
+  function normLatin(s) {
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  const EN_TO_PREF = Object.fromEntries(Object.entries(PREF_EN).map(([ja, en]) => [normLatin(en), ja]));
+
+  // setlist.fmの日付形式は dd-MM-yyyy
+  function toSetlistFmDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  }
+
+  function normalizeSetlistEntry(entry) {
+    // APIは sets.set[].song[] の形。念のため set[] 直置きにも対応する
+    const raw = (entry.sets && entry.sets.set) || entry.set || [];
+    const groups = Array.isArray(raw) ? raw : [];
+    const songs = [];
+    groups.forEach(g => {
+      (g.song || []).forEach(s => {
+        if (s && s.name) songs.push(s.name);
+      });
+    });
+    const city = (entry.venue && entry.venue.city) || {};
+    return {
+      artist: (entry.artist && entry.artist.name) || '',
+      venue: (entry.venue && entry.venue.name) || '',
+      city: city.name || '',
+      state: city.state || '',
+      tour: (entry.tour && entry.tour.name) || '',
+      url: entry.url || '',
+      songs
+    };
+  }
+
+  // APIキーの制限は 2.0リクエスト/秒（1日1440件）。上限に張り付くと429が返るので余裕を取る。
+  const SL_MIN_GAP_MS = 1100;
+  let slLastCallAt = 0;
+
+  async function slWaitForSlot() {
+    const wait = slLastCallAt + SL_MIN_GAP_MS - Date.now();
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    slLastCallAt = Date.now();
+  }
+
+  async function fetchSetlistPage(isoDate, page, isRetry) {
+    await slWaitForSlot();
+    const date = toSetlistFmDate(isoDate);
+    const url = `${SETLIST_PROXY}?${new URLSearchParams({ date, countryCode: 'JP', p: String(page) })}`;
+    const res = await fetch(url);
+    // 中継サーバーは該当なしを 200 + 空配列で返す設計なので、404はURLの設定ミス
+    if (res.status === 404) {
+      throw new Error('中継サーバーが見つかりません(404)。設定したURLを確認してください。');
+    }
+    // レート制限。一度だけ間を置いて再挑戦する
+    if (res.status === 429) {
+      if (isRetry) {
+        throw new Error('アクセスが混み合っています。10秒ほど待ってからもう一度お試しください。');
+      }
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10);
+      const waitMs = Number.isFinite(retryAfter) ? (retryAfter + 1) * 1000 : 4000;
+      await new Promise(r => setTimeout(r, waitMs));
+      return await fetchSetlistPage(isoDate, page, true);
+    }
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const body = await res.json();
+        if (body && body.error) detail = `：${body.error}`;
+      } catch (e) { /* JSON以外は無視 */ }
+      throw new Error(`公演情報の取得に失敗しました(${res.status})${detail}`);
+    }
+    return await res.json();
+  }
+
+  // その日の日本国内の公演を取得し、選択中の都道府県のものを先頭に並べる。
+  // 都道府県で絞り込まず並べ替えるだけにしてあるのは、英語名の対応が外れても候補が消えないようにするため。
+  // 1日に100件以上あることも珍しくないため、選んだ都道府県の分が十分集まるまでページを追う。
+  // 1日あたりのAPI上限(1440件)を食い潰さないよう、ページ数には上限を設ける。
+  const SL_MAX_PAGES = 5;
+  const SL_ENOUGH_MATCHES = 8;
+
+  async function searchSetlistsByDate(isoDate, prefJa, onProgress) {
+    const wanted = normLatin(PREF_EN[prefJa] || '');
+    let entries = [];
+    let total = 0;
+
+    for (let page = 1; page <= SL_MAX_PAGES; page++) {
+      if (page > 1 && onProgress) {
+        onProgress(`この日は${total}件あります。絞り込み中...（${page}ページ目）`);
+      }
+      const data = await fetchSetlistPage(isoDate, page);
+      const batch = (data.setlist || []).map(normalizeSetlistEntry);
+      total = data.total || entries.length + batch.length;
+      entries = entries.concat(batch);
+
+      if (!batch.length || entries.length >= total) break;
+      // 都道府県を選んでいるなら、その分が十分集まった時点で打ち切る
+      if (wanted && entries.filter(e => normLatin(e.state) === wanted).length >= SL_ENOUGH_MATCHES) break;
+      // 選んでいない場合は無限に追う意味がないので2ページで止める
+      if (!wanted && page >= 2) break;
+    }
+
+    const matched = wanted ? entries.filter(e => normLatin(e.state) === wanted) : [];
+    const rest = wanted ? entries.filter(e => normLatin(e.state) !== wanted) : entries;
+    return { entries: matched.concat(rest), matchedCount: matched.length, total };
   }
 
   // ---------- Spotify ----------
@@ -1161,7 +1328,7 @@
       .filter(c => {
         // 文字列検索はアーティスト・会場・日付をまとめて対象にする（「2026-05」で月指定もできる）
         if (term) {
-          const hay = `${c.artist || ''} ${c.venue || ''} ${c.pref || ''} ${c.date || ''}`.toLowerCase();
+          const hay = `${c.artist || ''} ${c.title || ''} ${c.venue || ''} ${c.pref || ''} ${c.date || ''}`.toLowerCase();
           if (!hay.includes(term)) return false;
         }
         if (prefSel && (c.pref || '') !== prefSel) return false;
@@ -1196,6 +1363,7 @@
             <div class="chevron">▶</div>
           </div>
           <div class="card-body">
+            ${c.title ? `<div class="card-title">${escapeHtml(c.title)}</div>` : ''}
             ${c.url ? `<a class="ref-link" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">参考リンクを開く</a><br>` : ''}
             ${songs.length
               ? `<ol class="song-list">${songs.map((s, i) => {
@@ -1294,6 +1462,7 @@
   const liveForm = document.getElementById('liveForm');
   const editIdInput = document.getElementById('editId');
   const fArtist = document.getElementById('fArtist');
+  const fTitle = document.getElementById('fTitle');
   const fDate = document.getElementById('fDate');
   const fVenue = document.getElementById('fVenue');
   const fPref = document.getElementById('fPref');
@@ -1377,6 +1546,87 @@
     spArtistNote.textContent = `アーティストを「${a.name}」にしました。`;
   });
 
+  // --- 公演を検索して自動入力 ---
+  const slFetchBtn = document.getElementById('slFetchBtn');
+  const slResults = document.getElementById('slResults');
+  const slNote = document.getElementById('slNote');
+  let slLast = [];
+
+  function clearSlResults() {
+    slResults.innerHTML = '';
+    slResults.classList.remove('show');
+    slLast = [];
+  }
+
+  slFetchBtn.addEventListener('click', async () => {
+    clearSlResults();
+    if (!SETLIST_PROXY) {
+      slNote.textContent = '公演検索は未設定です（中継サーバーのURLが入っていません）。';
+      return;
+    }
+    if (!fDate.value) {
+      slNote.textContent = 'まず日付を入れてください。';
+      return;
+    }
+    slFetchBtn.disabled = true;
+    slNote.textContent = '検索中...';
+    try {
+      const { entries, matchedCount, total } = await searchSetlistsByDate(fDate.value, fPref.value, msg => {
+        slNote.textContent = msg;
+      });
+      if (!entries.length) {
+        slNote.textContent = 'この日の公演は見つかりませんでした。手入力で登録してください。';
+        return;
+      }
+      // 一覧が長くなりすぎないよう表示は絞る（一致した都道府県が先頭に並んでいる）
+      const shown = entries.slice(0, 25);
+      slLast = shown;
+      slResults.innerHTML = shown.map((e, i) => {
+        const place = [e.venue, e.city].filter(Boolean).join('・');
+        const extra = [e.tour, e.songs.length ? `${e.songs.length}曲` : ''].filter(Boolean).join(' / ');
+        return `
+          <button type="button" class="sp-result" data-i="${i}">
+            <span class="t">
+              <b>${escapeHtml(e.artist)}</b>
+              <span>${escapeHtml(place)}${extra ? ' ・ ' + escapeHtml(extra) : ''}</span>
+            </span>
+          </button>`;
+      }).join('');
+      slResults.classList.add('show');
+      const parts = [`この日は全${total}件`];
+      if (fPref.value) {
+        parts.push(matchedCount
+          ? `うち${fPref.value}が${matchedCount}件（先頭に表示）`
+          : `${fPref.value}は見つからず、他の地域を表示`);
+      }
+      if (shown.length < entries.length) parts.push(`${shown.length}件まで表示`);
+      slNote.innerHTML = `${escapeHtml(parts.join(' / '))}<br>情報提供: <a href="https://www.setlist.fm/" target="_blank" rel="noopener">setlist.fm</a>`;
+    } catch (e) {
+      slNote.textContent = e.message;
+    } finally {
+      slFetchBtn.disabled = false;
+    }
+  });
+
+  slResults.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sp-result');
+    if (!btn) return;
+    const picked = slLast[Number(btn.dataset.i)];
+    if (!picked) return;
+    fArtist.value = picked.artist;
+    if (picked.tour) fTitle.value = picked.tour;
+    if (picked.venue) fVenue.value = picked.venue;
+    const prefJa = EN_TO_PREF[normLatin(picked.state)];
+    if (prefJa) {
+      fPref.value = prefJa;
+      prefTouched = true; // 自動入力後に会場名で上書きされないようにする
+    }
+    if (picked.songs.length) fSongs.value = picked.songs.join('\n') + '\n';
+    if (!fUrl.value && picked.url) fUrl.value = picked.url;
+    clearSlResults();
+    slNote.textContent = `「${picked.artist}」の内容を入力しました。必要なら直してください。`;
+  });
+
   function clearSpResults() {
     spResults.innerHTML = '';
     spResults.classList.remove('show');
@@ -1389,6 +1639,8 @@
     spQuery.value = '';
     clearSpResults();
     clearArtistResults();
+    clearSlResults();
+    slNote.textContent = '';
     spArtistNote.textContent = '';
     spNote.textContent = spToken ? '' : SP_NOT_CONNECTED;
   }
@@ -1460,6 +1712,7 @@
     modalTitle.textContent = 'ライブを編集';
     editIdInput.value = c.id;
     fArtist.value = c.artist || '';
+    fTitle.value = c.title || '';
     fDate.value = c.date || '';
     fVenue.value = c.venue || '';
     // 既に都道府県が入っているなら、会場名の再入力で勝手に書き換えない
@@ -1491,6 +1744,7 @@
     const data = {
       id,
       artist: fArtist.value.trim(),
+      title: fTitle.value.trim(),
       date: fDate.value,
       venue,
       // 未選択のまま保存された場合も、会場名から推定できれば入れておく
