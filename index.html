@@ -491,6 +491,38 @@
     margin-bottom: 8px;
     min-height: 15px;
   }
+  .jp-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .jp-row:last-child { border-bottom: none; }
+  .jp-row input[type="checkbox"] {
+    width: auto;
+    margin: 3px 0 0;
+    flex-shrink: 0;
+  }
+  .jp-row .txt {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .jp-row .from {
+    color: var(--sub-text);
+    text-decoration: line-through;
+    word-break: break-word;
+  }
+  .jp-row .to {
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .jp-apply {
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
   .attribution {
     font-size: 11px;
     color: var(--sub-text);
@@ -621,6 +653,11 @@
       <div class="field">
         <label>セトリ（1行に1曲）</label>
         <textarea id="fSongs" placeholder="曲名1&#10;曲名2&#10;曲名3"></textarea>
+      </div>
+      <div class="field">
+        <button type="button" class="btn-sl" id="jpFixBtn">🇯🇵 曲名を日本語表記に直す</button>
+        <div class="sp-results" id="jpResults"></div>
+        <div class="sp-note" id="jpNote"></div>
       </div>
       <div class="modal-buttons">
         <button type="button" class="btn btn-secondary" id="cancelBtn">キャンセル</button>
@@ -1060,13 +1097,14 @@
   }
 
   // アーティスト名を絞り込みに使うと精度が上がる。0件ならアーティスト指定なしで引き直す
-  async function spSearchTracks(query, artistHint, limit) {
+  // strict=true のときはアーティスト指定を外した引き直しをしない（別アーティストの曲を拾わないため）
+  async function spSearchTracks(query, artistHint, limit, strict) {
     const q = String(query || '').trim();
     if (!q) return [];
     const lim = String(limit || 8);
     const attempts = artistHint
-      ? [`track:"${q}" artist:"${artistHint}"`, q]
-      : [q];
+      ? (strict ? [`track:"${q}" artist:"${artistHint}"`] : [`track:"${q}" artist:"${artistHint}"`, q])
+      : (strict ? [] : [q]);
     for (const term of attempts) {
       const data = await spApi(`/search?${new URLSearchParams({ q: term, type: 'track', limit: lim })}`);
       const items = (data && data.tracks && data.tracks.items) || [];
@@ -1640,7 +1678,9 @@
     clearSpResults();
     clearArtistResults();
     clearSlResults();
+    clearJpResults();
     slNote.textContent = '';
+    jpNote.textContent = '';
     spArtistNote.textContent = '';
     spNote.textContent = spToken ? '' : SP_NOT_CONNECTED;
   }
@@ -1693,6 +1733,111 @@
     spQuery.value = '';
     clearSpResults();
     spNote.textContent = `「${t.name}」を追加しました。`;
+  });
+
+  // --- 曲名をローマ字から日本語表記へ直す ---
+  const jpFixBtn = document.getElementById('jpFixBtn');
+  const jpResults = document.getElementById('jpResults');
+  const jpNote = document.getElementById('jpNote');
+  let jpProposals = [];
+
+  // ひらがな・カタカナ・漢字のいずれかを含むか
+  function hasJapanese(s) {
+    return /[\u3040-\u30ff\u3400-\u9fff]/.test(String(s || ''));
+  }
+
+  // 比較用に記号と空白を落として揃える（同じ曲名を「別物」と判定しないため）
+  function loose(s) {
+    return String(s || '').toLowerCase()
+      .replace(/[\s'"`~!?.,:;_/\\()\[\]{}\u2018\u2019\u201c\u201d\u2013\u2014\u3001\u3002\u300c\u300d\u300e\u300f\u301c\uff5e-]/g, '');
+  }
+
+  function clearJpResults() {
+    jpResults.innerHTML = '';
+    jpResults.classList.remove('show');
+    jpProposals = [];
+  }
+
+  jpFixBtn.addEventListener('click', async () => {
+    clearJpResults();
+    if (!spToken) {
+      jpNote.textContent = 'Spotifyに接続すると使えます（⚙から接続）。';
+      return;
+    }
+    const artist = fArtist.value.trim();
+    if (!artist) {
+      jpNote.textContent = 'アーティスト名を入れてください（曲の絞り込みに使います）。';
+      return;
+    }
+    const lines = fSongs.value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!lines.length) {
+      jpNote.textContent = 'セトリが空です。';
+      return;
+    }
+
+    jpFixBtn.disabled = true;
+    const targets = Array.from(new Set(lines));
+    const found = [];
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        jpNote.textContent = `照合中... (${i + 1}/${targets.length})`;
+        const line = targets[i];
+        // すでに日本語表記のものは触らない
+        if (hasJapanese(line)) continue;
+        const hits = await spSearchTracks(line, artist, 3, true);
+        // 日本語を含み、かつ元の表記と実質的に違う候補だけを提案する。
+        // 元から英語題の曲はSpotifyでも英語題なので、ここで自動的に除外される。
+        const cand = hits.find(t => hasJapanese(t.name) && loose(t.name) !== loose(line));
+        if (cand) found.push({ from: line, to: cand.name, track: cand });
+        await new Promise(r => setTimeout(r, 120));
+      }
+    } catch (e) {
+      jpNote.textContent = `照合に失敗しました: ${e.message}`;
+      jpFixBtn.disabled = false;
+      return;
+    }
+    jpFixBtn.disabled = false;
+
+    if (!found.length) {
+      jpNote.textContent = '日本語表記の候補は見つかりませんでした（元から英語題の曲はそのままにしています）。';
+      return;
+    }
+    jpProposals = found;
+    jpResults.innerHTML = found.map((p, i) => `
+      <label class="jp-row">
+        <input type="checkbox" data-i="${i}" checked>
+        <span class="txt">
+          <span class="from">${escapeHtml(p.from)}</span><br>
+          <span class="to">${escapeHtml(p.to)}</span>
+        </span>
+      </label>`).join('') +
+      `<div class="jp-apply"><button type="button" class="btn btn-primary" id="jpApplyBtn">チェックした曲名を反映</button></div>`;
+    jpResults.classList.add('show');
+    jpNote.textContent = `${found.length}件の候補が見つかりました。内容を確認してから反映してください。`;
+  });
+
+  jpResults.addEventListener('click', (e) => {
+    if (!e.target.closest('#jpApplyBtn')) return;
+    const selected = [...jpResults.querySelectorAll('input[type="checkbox"]')]
+      .filter(cb => cb.checked)
+      .map(cb => jpProposals[Number(cb.dataset.i)])
+      .filter(Boolean);
+    if (!selected.length) {
+      jpNote.textContent = '反映する曲が選ばれていません。';
+      return;
+    }
+    // 行番号ではなく曲名で置き換える（間で編集されていてもずれない）
+    let lines = fSongs.value.split('\n');
+    const artist = fArtist.value.trim();
+    selected.forEach(p => {
+      lines = lines.map(l => (l.trim() === p.from ? p.to : l));
+      // 新しい曲名でアルバムアートが出るようにキャッシュしておく
+      trackCache[cacheKey(p.to, artist)] = p.track;
+    });
+    persistTrackCache();
+    fSongs.value = lines.join('\n');
+    clearJpResults();
+    jpNote.textContent = `${selected.length}件を日本語表記に直しました。`;
   });
 
   function openAddModal() {
