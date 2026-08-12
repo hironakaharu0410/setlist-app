@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マイセトリ帳</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text: #1c1c1e;
+    --sub-text: #6e6e73;
+    --accent: #ff375f;
+    --border: #e5e5ea;
+    --ok: #34c759;
+    --warn: #ff9500;
+    --err: #ff3b30;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card-bg: #1c1c1e;
+      --text: #f2f2f7;
+      --sub-text: #98989d;
+      --border: #38383a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    padding: calc(16px + env(safe-area-inset-top)) 16px 8px;
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0;
+  }
+  .icon-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    padding: 4px 8px;
+  }
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .sync-status {
+    font-size: 12px;
+    color: var(--sub-text);
+    flex: 1;
+  }
+  .sync-status.ok { color: var(--ok); }
+  .sync-status.warn { color: var(--warn); }
+  .sync-status.err { color: var(--err); }
+  .sync-now-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 0;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--sub-text);
+    padding: 8px 0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  main {
+    padding: 8px 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .search-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .empty {
+    color: var(--sub-text);
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 14px;
+    cursor: pointer;
+  }
+  .card-head .info { flex: 1; min-width: 0; }
+  .card-artist {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-meta {
+    font-size: 13px;
+    color: var(--sub-text);
+    margin-top: 2px;
+  }
+  .chevron {
+    color: var(--sub-text);
+    transition: transform 0.15s ease;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .card.open .chevron { transform: rotate(90deg); }
+  .card-body {
+    display: none;
+    padding: 0 14px 14px;
+  }
+  .card.open .card-body { display: block; }
+  .song-list {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 14px;
+    line-height: 1.9;
+  }
+  .card-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    padding: 4px 0;
+  }
+  .link-btn.muted { color: var(--sub-text); }
+  .ref-link {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    text-decoration: none;
+  }
+  .song-count-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 9px;
+    margin-left: 8px;
+  }
+  .song-row {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .song-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .song-name { font-size: 15px; font-weight: 600; }
+  .song-detail {
+    display: none;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--sub-text);
+  }
+  .song-row.open .song-detail { display: block; }
+  .song-detail div { padding: 3px 0; }
+  .fab {
+    position: fixed;
+    right: 20px;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 28px;
+    border: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    z-index: 20;
+  }
+  .footer-actions {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 0 8px;
+  }
+  .footer-actions button {
+    background: none;
+    border: none;
+    color: var(--sub-text);
+    font-size: 13px;
+    text-decoration: underline;
+  }
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 30;
+    align-items: flex-end;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg);
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .modal h2 {
+    font-size: 18px;
+    margin: 0 0 16px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--sub-text);
+    margin-bottom: 4px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .field textarea {
+    min-height: 140px;
+    resize: vertical;
+    line-height: 1.7;
+  }
+  .field-hint {
+    font-size: 12px;
+    color: var(--sub-text);
+    margin-top: 4px;
+  }
+  .modal-error {
+    display: none;
+    background: rgba(255, 59, 48, 0.12);
+    color: var(--err);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .modal-error.show { display: block; }
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .btn {
+    flex: 1;
+    padding: 13px 0;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; }
+  .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>マイセトリ帳</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="設定">⚙️</button>
+  </div>
+  <div class="sync-row">
+    <span class="sync-status" id="syncStatus">未設定</span>
+    <button class="sync-now-btn" id="syncNowBtn">🔄 同期</button>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="lives">ライブ一覧</button>
+    <button class="tab-btn" data-tab="songs">全曲一覧</button>
+  </div>
+</header>
+
+<main>
+  <section id="tab-lives">
+    <input type="text" id="searchInput" class="search-input" placeholder="アーティスト名で検索">
+    <div id="livesList"></div>
+  </section>
+
+  <section id="tab-songs" style="display:none;">
+    <div id="songsList"></div>
+  </section>
+
+  <div class="footer-actions">
+    <button id="exportBtn">バックアップを書き出す</button>
+    <button id="importBtn">バックアップを読み込む</button>
+    <input type="file" id="importFile" accept="application/json">
+  </div>
+</main>
+
+<button class="fab" id="addFab">＋</button>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">ライブを追加</h2>
+    <form id="liveForm">
+      <input type="hidden" id="editId">
+      <div class="field">
+        <label>アーティスト名 *</label>
+        <input type="text" id="fArtist" required>
+      </div>
+      <div class="field">
+        <label>日付 *</label>
+        <input type="date" id="fDate" required>
+      </div>
+      <div class="field">
+        <label>会場</label>
+        <input type="text" id="fVenue" placeholder="例: 東京ドーム">
+      </div>
+      <div class="field">
+        <label>参考リンク（livefans.jp のページなど）</label>
+        <input type="url" id="fUrl" placeholder="https://www.livefans.jp/...">
+        <div class="field-hint">livefans.jpでセトリを確認しながら、下の欄に自分で入力してください</div>
+      </div>
+      <div class="field">
+        <label>セトリ（1行に1曲）</label>
+        <textarea id="fSongs" placeholder="曲名1&#10;曲名2&#10;曲名3"></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" class="btn btn-secondary" id="cancelBtn">キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="saveBtn">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>GitHub連携設定</h2>
+    <div class="modal-error" id="settingsError"></div>
+    <div class="field">
+      <label>GitHubユーザー名</label>
+      <input type="text" id="ghOwner" placeholder="例: haruto-hironaka">
+    </div>
+    <div class="field">
+      <label>リポジトリ名</label>
+      <input type="text" id="ghRepo" placeholder="例: setlist-data">
+    </div>
+    <div class="field">
+      <label>Personal Access Token</label>
+      <input type="password" id="ghToken" placeholder="github_pat_...">
+      <div class="field-hint">この端末のブラウザ内にのみ保存されます。他の端末にも同じ設定を入力してください。</div>
+    </div>
+    <div class="modal-buttons">
+      <button type="button" class="btn btn-secondary" id="settingsCancelBtn">キャンセル</button>
+      <button type="button" class="btn btn-primary" id="settingsSaveBtn">保存して接続確認</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LOCAL_CACHE_KEY = 'setlistApp.concerts';
+  const GH_CONFIG_KEY = 'setlistApp.github.config';
+  const DATA_PATH = 'data.json';
+
+  function loadLocalCache() {
+    try {
+      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveLocalCache(data) {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
+  }
+
+  function loadGithubConfig() {
+    try {
+      const raw = localStorage.getItem(GH_CONFIG_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveGithubConfig(cfg) {
+    localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
+  }
+
+  function b64EncodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
+  }
+
+  function b64DecodeUnicode(str) {
+    return decodeURIComponent(atob(str.replace(/\n/g, '')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  }
+
+  let concerts = loadLocalCache();
+  let githubConfig = loadGithubConfig();
+  let remoteSha = null;
+  let openCardId = null;
+  let openSongKey = null;
+  let searchTerm = '';
+
+  const livesList = document.getElementById('livesList');
+  const songsList = document.getElementById('songsList');
+  const searchInput = document.getElementById('searchInput');
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabLives = document.getElementById('tab-lives');
+  const tabSongs = document.getElementById('tab-songs');
+  const syncStatus = document.getElementById('syncStatus');
+  const syncNowBtn = document.getElementById('syncNowBtn');
+  const saveBtn = document.getElementById('saveBtn');
+
+  function setStatus(state, message) {
+    syncStatus.classList.remove('ok', 'warn', 'err');
+    if (!githubConfig) {
+      syncStatus.textContent = '未設定（⚙から設定してください）';
+      syncStatus.classList.add('warn');
+      return;
+    }
+    if (state === 'syncing') {
+      syncStatus.textContent = '🔄 同期中...';
+    } else if (state === 'synced') {
+      syncStatus.textContent = '☁️ 同期済み';
+      syncStatus.classList.add('ok');
+    } else if (state === 'error') {
+      syncStatus.textContent = `⚠️ 同期エラー: ${message || ''}`;
+      syncStatus.classList.add('err');
+    }
+  }
+
+  async function ghContentsUrl() {
+    return `https://api.github.com/repos/${encodeURIComponent(githubConfig.owner)}/${encodeURIComponent(githubConfig.repo)}/contents/${DATA_PATH}`;
+  }
+
+  async function ghAuthErrorMessage(res) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      if (body && body.message) detail = body.message;
+    } catch (e) { /* JSON以外の応答は無視 */ }
+    const hint = res.status === 401
+      ? 'トークンの文字列が違うか、有効期限が切れています'
+      : 'トークンにこのリポジトリのContents権限がありません';
+    return `認証エラー(${res.status})：${hint}${detail ? `／GitHubの応答: ${detail}` : ''}`;
+  }
+
+  async function loadFromGithub() {
+    if (!githubConfig) return;
+    setStatus('syncing');
+    try {
+      const res = await fetch(await ghContentsUrl(), {
+        headers: {
+          'Authorization': `Bearer ${githubConfig.token}`,
+          'Accept': 'application/vnd.github+json'
+        }
+      });
+      if (res.status === 404) {
+        remoteSha = null;
+        setStatus('synced');
+        return;
+      }
+      if (res.status === 401 || res.status === 403) throw new Error(await ghAuthErrorMessage(res));
+      if (!res.ok) throw new Error(`GitHubエラー(${res.status})`);
+      const data = await res.json();
+      remoteSha = data.sha;
+      const decoded = b64DecodeUnicode(data.content || '');
+      concerts = decoded ? JSON.parse(decoded) : [];
+      saveLocalCache(concerts);
+      setStatus('synced');
+    } catch (e) {
+      setStatus('error', e.message);
+    }
+  }
+
+  async function saveToGithub() {
+    saveLocalCache(concerts);
+    if (!githubConfig) { setStatus('unconfigured'); return; }
+    setStatus('syncing');
+    try {
+      const body = {
+        message: `update setlist data`,
+        content: b64EncodeUnicode(JSON.stringify(concerts, null, 2))
+      };
+      if (remoteSha) body.sha = remoteSha;
+      const res = await fetch(await ghContentsUrl(), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${githubConfig.token}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 409) {
+        alert('他の端末で更新されたデータと衝突しました。最新のデータを取得し直しますので、もう一度操作をやり直してください。');
+        await loadFromGithub();
+        renderLives();
+        return;
+      }
+      if (res.status === 401 || res.status === 403) throw new Error(await ghAuthErrorMessage(res));
+      if (!res.ok) throw new Error(`GitHubエラー(${res.status})`);
+      const data = await res.json();
+      remoteSha = data.content.sha;
+      setStatus('synced');
+    } catch (e) {
+      setStatus('error', e.message);
+    }
+  }
+
+  syncNowBtn.addEventListener('click', async () => {
+    if (!githubConfig) {
+      openSettingsModal();
+      return;
+    }
+    await loadFromGithub();
+    renderLives();
+    if (tabSongs.style.display !== 'none') renderSongs();
+  });
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      tabLives.style.display = tab === 'lives' ? '' : 'none';
+      tabSongs.style.display = tab === 'songs' ? '' : 'none';
+      if (tab === 'songs') renderSongs();
+    });
+  });
+
+  searchInput.addEventListener('input', () => {
+    searchTerm = searchInput.value.trim();
+    renderLives();
+  });
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    const parts = d.split('-');
+    if (parts.length !== 3) return d;
+    return `${parts[0]}年${parseInt(parts[1], 10)}月${parseInt(parts[2], 10)}日`;
+  }
+
+  function renderLives() {
+    const filtered = concerts
+      .filter(c => !searchTerm || c.artist.toLowerCase().includes(searchTerm.toLowerCase()))
+      .slice()
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    if (filtered.length === 0) {
+      livesList.innerHTML = `<div class="empty">${concerts.length === 0
+        ? '右下の＋ボタンから、行ったライブを追加してみましょう。'
+        : '該当するライブがありません。'}</div>`;
+      return;
+    }
+
+    livesList.innerHTML = filtered.map(c => {
+      const isOpen = openCardId === c.id;
+      const songs = c.songs || [];
+      return `
+        <div class="card ${isOpen ? 'open' : ''}" data-id="${c.id}">
+          <div class="card-head" data-action="toggle">
+            <div class="info">
+              <div class="card-artist">${escapeHtml(c.artist)}</div>
+              <div class="card-meta">${formatDate(c.date)}${c.venue ? ' ・ ' + escapeHtml(c.venue) : ''}${songs.length ? ' ・ ' + songs.length + '曲' : ''}</div>
+            </div>
+            <div class="chevron">▶</div>
+          </div>
+          <div class="card-body">
+            ${c.url ? `<a class="ref-link" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">参考リンクを開く</a><br>` : ''}
+            ${songs.length
+              ? `<ol class="song-list">${songs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`
+              : '<div class="field-hint">セトリ未登録</div>'}
+            <div class="card-actions">
+              <button class="link-btn" data-action="edit">編集</button>
+              <button class="link-btn muted" data-action="delete">削除</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  livesList.addEventListener('click', async (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    const id = card.dataset.id;
+    const action = e.target.dataset.action;
+    if (action === 'toggle') {
+      openCardId = openCardId === id ? null : id;
+      renderLives();
+    } else if (action === 'edit') {
+      openEditModal(id);
+    } else if (action === 'delete') {
+      if (confirm('このライブを削除しますか？')) {
+        concerts = concerts.filter(c => c.id !== id);
+        renderLives();
+        await saveToGithub();
+      }
+    }
+  });
+
+  function renderSongs() {
+    const map = new Map();
+    concerts.forEach(c => {
+      (c.songs || []).forEach(song => {
+        const key = song.trim();
+        if (!key) return;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push({ artist: c.artist, date: c.date, venue: c.venue });
+      });
+    });
+
+    const entries = Array.from(map.entries()).sort((a, b) => {
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+      return a[0].localeCompare(b[0], 'ja');
+    });
+
+    if (entries.length === 0) {
+      songsList.innerHTML = '<div class="empty">ライブを登録すると、聴いた曲がここに一覧表示されます。</div>';
+      return;
+    }
+
+    songsList.innerHTML = entries.map(([song, occurrences]) => {
+      const isOpen = openSongKey === song;
+      return `
+        <div class="song-row ${isOpen ? 'open' : ''}" data-song="${escapeHtml(song)}">
+          <div class="song-row-head" data-action="toggle">
+            <div class="song-name">${escapeHtml(song)}</div>
+            <div class="song-count-badge">${occurrences.length}</div>
+          </div>
+          <div class="song-detail">
+            ${occurrences
+              .slice()
+              .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+              .map(o => `<div>${formatDate(o.date)} ・ ${escapeHtml(o.artist)}${o.venue ? ' ・ ' + escapeHtml(o.venue) : ''}</div>`)
+              .join('')}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  songsList.addEventListener('click', (e) => {
+    const row = e.target.closest('.song-row');
+    if (!row) return;
+    const song = row.dataset.song;
+    openSongKey = openSongKey === song ? null : song;
+    renderSongs();
+  });
+
+  // Add/Edit modal handling
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalTitle = document.getElementById('modalTitle');
+  const liveForm = document.getElementById('liveForm');
+  const editIdInput = document.getElementById('editId');
+  const fArtist = document.getElementById('fArtist');
+  const fDate = document.getElementById('fDate');
+  const fVenue = document.getElementById('fVenue');
+  const fUrl = document.getElementById('fUrl');
+  const fSongs = document.getElementById('fSongs');
+
+  function openAddModal() {
+    modalTitle.textContent = 'ライブを追加';
+    editIdInput.value = '';
+    liveForm.reset();
+    modalOverlay.classList.add('show');
+  }
+
+  function openEditModal(id) {
+    const c = concerts.find(c => c.id === id);
+    if (!c) return;
+    modalTitle.textContent = 'ライブを編集';
+    editIdInput.value = c.id;
+    fArtist.value = c.artist || '';
+    fDate.value = c.date || '';
+    fVenue.value = c.venue || '';
+    fUrl.value = c.url || '';
+    fSongs.value = (c.songs || []).join('\n');
+    modalOverlay.classList.add('show');
+  }
+
+  function closeModal() {
+    modalOverlay.classList.remove('show');
+  }
+
+  document.getElementById('addFab').addEventListener('click', openAddModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  liveForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = editIdInput.value || String(Date.now());
+    const songs = fSongs.value.split('\n').map(s => s.trim()).filter(Boolean);
+    const data = {
+      id,
+      artist: fArtist.value.trim(),
+      date: fDate.value,
+      venue: fVenue.value.trim(),
+      url: fUrl.value.trim(),
+      songs
+    };
+    const idx = concerts.findIndex(c => c.id === id);
+    if (idx >= 0) {
+      concerts[idx] = data;
+    } else {
+      concerts.push(data);
+    }
+    closeModal();
+    renderLives();
+    saveBtn.disabled = true;
+    await saveToGithub();
+    saveBtn.disabled = false;
+  });
+
+  // Settings modal handling
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const settingsError = document.getElementById('settingsError');
+  const ghOwner = document.getElementById('ghOwner');
+  const ghRepo = document.getElementById('ghRepo');
+  const ghToken = document.getElementById('ghToken');
+  const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+
+  function openSettingsModal() {
+    settingsError.classList.remove('show');
+    if (githubConfig) {
+      ghOwner.value = githubConfig.owner || '';
+      ghRepo.value = githubConfig.repo || '';
+      ghToken.value = githubConfig.token || '';
+    } else {
+      ghOwner.value = '';
+      ghRepo.value = '';
+      ghToken.value = '';
+    }
+    settingsOverlay.classList.add('show');
+  }
+
+  document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+  document.getElementById('settingsCancelBtn').addEventListener('click', () => {
+    settingsOverlay.classList.remove('show');
+  });
+  settingsOverlay.addEventListener('click', (e) => {
+    if (e.target === settingsOverlay) settingsOverlay.classList.remove('show');
+  });
+
+  settingsSaveBtn.addEventListener('click', async () => {
+    const owner = ghOwner.value.trim();
+    const repo = ghRepo.value.trim();
+    const token = ghToken.value.trim();
+    if (!owner || !repo || !token) {
+      settingsError.textContent = 'すべての項目を入力してください。';
+      settingsError.classList.add('show');
+      return;
+    }
+    settingsSaveBtn.disabled = true;
+    settingsSaveBtn.textContent = '接続確認中...';
+    const previousConfig = githubConfig;
+    githubConfig = { owner, repo, token };
+    try {
+      const res = await fetch(await ghContentsUrl(), {
+        headers: {
+          'Authorization': `Bearer ${githubConfig.token}`,
+          'Accept': 'application/vnd.github+json'
+        }
+      });
+      if (res.status === 401 || res.status === 403) throw new Error(await ghAuthErrorMessage(res));
+      if (res.status === 404) {
+        // repo reachable, file not yet created — fine
+      } else if (!res.ok) {
+        throw new Error(`接続できませんでした(${res.status})：ユーザー名・リポジトリ名を確認してください`);
+      } else {
+        const data = await res.json();
+        remoteSha = data.sha;
+        const decoded = b64DecodeUnicode(data.content || '');
+        concerts = decoded ? JSON.parse(decoded) : [];
+      }
+      saveGithubConfig(githubConfig);
+      saveLocalCache(concerts);
+      settingsOverlay.classList.remove('show');
+      setStatus('synced');
+      renderLives();
+      if (tabSongs.style.display !== 'none') renderSongs();
+    } catch (e) {
+      githubConfig = previousConfig;
+      settingsError.textContent = e.message;
+      settingsError.classList.add('show');
+    } finally {
+      settingsSaveBtn.disabled = false;
+      settingsSaveBtn.textContent = '保存して接続確認';
+    }
+  });
+
+  // Export / Import
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(concerts, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `setlist-backup-${today}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importFile = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', () => {
+    const file = importFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error('invalid format');
+        if (confirm(`${imported.length}件のライブを読み込みます。現在のデータと統合しますか？`)) {
+          const existingIds = new Set(concerts.map(c => c.id));
+          imported.forEach(c => {
+            if (existingIds.has(c.id)) {
+              c.id = String(Date.now()) + Math.random().toString(36).slice(2, 7);
+            }
+            concerts.push(c);
+          });
+          renderLives();
+          await saveToGithub();
+        }
+      } catch (err) {
+        alert('読み込みに失敗しました。正しいバックアップファイルか確認してください。');
+      }
+      importFile.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  (async function init() {
+    setStatus();
+    renderLives();
+    if (githubConfig) {
+      await loadFromGithub();
+      renderLives();
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>
