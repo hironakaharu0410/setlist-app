@@ -447,6 +447,60 @@
     margin-top: 6px;
     min-height: 16px;
   }
+
+  /* --- 絞り込み --- */
+  .field select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .filter-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .filter-clear {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 4px 2px;
+  }
+  .filter-count {
+    font-size: 12px;
+    color: var(--sub-text);
+    margin-bottom: 8px;
+    min-height: 15px;
+  }
+  .card-pref {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--sub-text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-left: 6px;
+    vertical-align: 1px;
+  }
 </style>
 </head>
 <body>
@@ -468,7 +522,13 @@
 
 <main>
   <section id="tab-lives">
-    <input type="text" id="searchInput" class="search-input" placeholder="アーティスト名で検索">
+    <input type="text" id="searchInput" class="search-input" placeholder="アーティスト・会場・日付（2026-05 など）で検索">
+    <div class="filter-row">
+      <select id="filterPref"></select>
+      <select id="filterYear"></select>
+      <button type="button" class="filter-clear" id="filterClear">クリア</button>
+    </div>
+    <div class="filter-count" id="filterCount"></div>
     <div id="livesList"></div>
   </section>
 
@@ -492,7 +552,9 @@
       <input type="hidden" id="editId">
       <div class="field">
         <label>アーティスト名 *</label>
-        <input type="text" id="fArtist" required>
+        <input type="text" id="fArtist" required autocomplete="off">
+        <div class="sp-results" id="spArtistResults"></div>
+        <div class="sp-note" id="spArtistNote"></div>
       </div>
       <div class="field">
         <label>日付 *</label>
@@ -501,6 +563,11 @@
       <div class="field">
         <label>会場</label>
         <input type="text" id="fVenue" placeholder="例: 東京ドーム">
+      </div>
+      <div class="field">
+        <label>都道府県</label>
+        <select id="fPref"></select>
+        <div class="field-hint" id="fPrefHint">会場名から自動で候補を入れます。違っていれば選び直してください。</div>
       </div>
       <div class="field">
         <label>参考リンク（livefans.jp のページなど）</label>
@@ -596,6 +663,68 @@
 
   function b64DecodeUnicode(str) {
     return decodeURIComponent(atob(str.replace(/\n/g, '')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  }
+
+  // ---------- 都道府県 ----------
+  const PREFS = [
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+    '岐阜県', '静岡県', '愛知県', '三重県',
+    '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+    '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県',
+    '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+  ];
+
+  // 会場名から都道府県を推定するための対応表。あくまで初期値の提案で、確定情報ではない。
+  // 上から順に部分一致で判定するので、紛らわしい語（東京→京都）は先に置く必要がある。
+  const VENUE_HINTS = [
+    ['東京ドーム', '東京都'], ['日本武道館', '東京都'], ['国立競技場', '東京都'],
+    ['東京国際フォーラム', '東京都'], ['東京ガーデンシアター', '東京都'], ['東京体育館', '東京都'],
+    ['代々木', '東京都'], ['有明', '東京都'], ['中野サンプラザ', '東京都'], ['日比谷', '東京都'],
+    ['両国国技館', '東京都'], ['武蔵野の森', '東京都'], ['味の素スタジアム', '東京都'],
+    ['zepp haneda', '東京都'], ['豊洲', '東京都'], ['神宮', '東京都'], ['お台場', '東京都'],
+    ['line cube shibuya', '東京都'], ['渋谷', '東京都'], ['新木場', '東京都'], ['赤坂', '東京都'],
+    ['後楽園', '東京都'], ['立川', '東京都'], ['八王子', '東京都'], ['東京', '東京都'],
+    ['kアリーナ', '神奈川県'], ['日産スタジアム', '神奈川県'], ['ぴあアリーナ', '神奈川県'],
+    ['横浜', '神奈川県'], ['川崎', '神奈川県'], ['相模原', '神奈川県'],
+    ['さいたまスーパーアリーナ', '埼玉県'], ['ベルーナドーム', '埼玉県'], ['西武園', '埼玉県'],
+    ['大宮', '埼玉県'], ['所沢', '埼玉県'], ['さいたま', '埼玉県'],
+    ['幕張', '千葉県'], ['zozoマリン', '千葉県'], ['舞浜', '千葉県'], ['市川', '千葉県'],
+    ['京セラドーム', '大阪府'], ['大阪城', '大阪府'], ['ヤンマースタジアム', '大阪府'],
+    ['zepp osaka', '大阪府'], ['なんば', '大阪府'], ['インテックス', '大阪府'],
+    ['万博記念', '大阪府'], ['エディオンアリーナ', '大阪府'], ['大阪', '大阪府'],
+    ['甲子園', '兵庫県'], ['ワールド記念ホール', '兵庫県'], ['神戸', '兵庫県'],
+    ['バンテリンドーム', '愛知県'], ['ナゴヤドーム', '愛知県'], ['日本ガイシ', '愛知県'],
+    ['ポートメッセ', '愛知県'], ['zepp nagoya', '愛知県'], ['名古屋', '愛知県'],
+    ['真駒内', '北海道'], ['札幌', '北海道'],
+    ['セキスイハイム', '宮城県'], ['仙台', '宮城県'],
+    ['paypayドーム', '福岡県'], ['マリンメッセ', '福岡県'], ['博多', '福岡県'], ['福岡', '福岡県'],
+    ['広島', '広島県'], ['京都', '京都府'], ['新潟', '新潟県'], ['金沢', '石川県'],
+    ['浜松', '静岡県'], ['静岡', '静岡県'], ['岡山', '岡山県'], ['熊本', '熊本県'],
+    ['鹿児島', '鹿児島県'], ['長野', '長野県'], ['松本', '長野県'], ['高松', '香川県'],
+    ['松山', '愛媛県'], ['那覇', '沖縄県'], ['沖縄', '沖縄県'], ['宇都宮', '栃木県'],
+    ['高崎', '群馬県'], ['水戸', '茨城県'], ['富山', '富山県'], ['盛岡', '岩手県'],
+    ['秋田', '秋田県'], ['青森', '青森県'], ['山形', '山形県'], ['郡山', '福島県'],
+    ['福島', '福島県'], ['甲府', '山梨県'], ['岐阜', '岐阜県'], ['四日市', '三重県'],
+    ['大津', '滋賀県'], ['奈良', '奈良県'], ['和歌山', '和歌山県'], ['鳥取', '鳥取県'],
+    ['松江', '島根県'], ['山口', '山口県'], ['徳島', '徳島県'], ['高知', '高知県'],
+    ['佐賀', '佐賀県'], ['長崎', '長崎県'], ['大分', '大分県'], ['宮崎', '宮崎県'],
+    ['福井', '福井県']
+  ];
+
+  function guessPref(venue) {
+    const v = String(venue || '').trim().toLowerCase();
+    if (!v) return '';
+    // 会場名に都道府県名がそのまま入っている場合を優先（東京都を京都府より先に判定するため）
+    for (const p of PREFS) {
+      if (v.includes(p)) return p;
+    }
+    for (const [needle, pref] of VENUE_HINTS) {
+      if (v.includes(needle)) return pref;
+    }
+    return '';
   }
 
   // ---------- Spotify ----------
@@ -779,6 +908,26 @@
     return [];
   }
 
+  async function spSearchArtists(query, limit) {
+    const q = String(query || '').trim();
+    if (!q) return [];
+    const data = await spApi(`/search?${new URLSearchParams({ q, type: 'artist', limit: String(limit || 8) })}`);
+    const items = (data && data.artists && data.artists.items) || [];
+    return items.map(a => {
+      const imgs = a.images || [];
+      const thumb = imgs[imgs.length - 1] || imgs[0] || null;
+      const genres = (a.genres || []).slice(0, 2).join(', ');
+      const followers = a.followers && typeof a.followers.total === 'number'
+        ? `フォロワー ${a.followers.total.toLocaleString('ja-JP')}人`
+        : '';
+      return {
+        name: a.name,
+        art: thumb ? thumb.url : '',
+        sub: genres || followers
+      };
+    });
+  }
+
   // 既存の曲名からアルバムアートを後追いで取得する（1件ずつ、キャッシュ済みはスキップ）
   const artQueue = [];
   const artQueued = new Set();
@@ -823,6 +972,10 @@
   const livesList = document.getElementById('livesList');
   const songsList = document.getElementById('songsList');
   const searchInput = document.getElementById('searchInput');
+  const filterPref = document.getElementById('filterPref');
+  const filterYear = document.getElementById('filterYear');
+  const filterClear = document.getElementById('filterClear');
+  const filterCount = document.getElementById('filterCount');
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabLives = document.getElementById('tab-lives');
   const tabSongs = document.getElementById('tab-songs');
@@ -953,6 +1106,37 @@
     renderLives();
   });
 
+  filterPref.addEventListener('change', renderLives);
+  filterYear.addEventListener('change', renderLives);
+  filterClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchTerm = '';
+    filterPref.value = '';
+    filterYear.value = '';
+    renderLives();
+  });
+
+  // 絞り込みの選択肢は、実際に登録されている都道府県と年だけを出す
+  function refreshFilterOptions() {
+    const prefs = Array.from(new Set(concerts.map(c => c.pref).filter(Boolean)))
+      .sort((a, b) => PREFS.indexOf(a) - PREFS.indexOf(b));
+    const years = Array.from(new Set(concerts.map(c => String(c.date || '').slice(0, 4)).filter(Boolean)))
+      .sort((a, b) => b.localeCompare(a));
+
+    const rebuild = (select, values, allLabel) => {
+      const keep = select.value;
+      select.innerHTML = `<option value="">${allLabel}</option>` +
+        values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      // 選択中の値がまだ存在すれば維持する
+      select.value = values.includes(keep) ? keep : '';
+    };
+
+    rebuild(filterPref, prefs, 'すべての都道府県');
+    rebuild(filterYear, years, 'すべての年');
+    filterPref.disabled = prefs.length === 0;
+    filterYear.disabled = years.length === 0;
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -967,10 +1151,28 @@
   }
 
   function renderLives() {
+    refreshFilterOptions();
+    const term = searchTerm.toLowerCase();
+    const prefSel = filterPref.value;
+    const yearSel = filterYear.value;
+    const hasFilter = Boolean(term || prefSel || yearSel);
+
     const filtered = concerts
-      .filter(c => !searchTerm || c.artist.toLowerCase().includes(searchTerm.toLowerCase()))
-      .slice()
+      .filter(c => {
+        // 文字列検索はアーティスト・会場・日付をまとめて対象にする（「2026-05」で月指定もできる）
+        if (term) {
+          const hay = `${c.artist || ''} ${c.venue || ''} ${c.pref || ''} ${c.date || ''}`.toLowerCase();
+          if (!hay.includes(term)) return false;
+        }
+        if (prefSel && (c.pref || '') !== prefSel) return false;
+        if (yearSel && String(c.date || '').slice(0, 4) !== yearSel) return false;
+        return true;
+      })
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    filterCount.textContent = hasFilter
+      ? `${filtered.length}件 / 全${concerts.length}件`
+      : (concerts.length ? `全${concerts.length}件` : '');
 
     if (filtered.length === 0) {
       livesList.innerHTML = `<div class="empty">${concerts.length === 0
@@ -987,7 +1189,9 @@
           <div class="card-head" data-action="toggle">
             <div class="info">
               <div class="card-artist">${escapeHtml(c.artist)}</div>
-              <div class="card-meta">${formatDate(c.date)}${c.venue ? ' ・ ' + escapeHtml(c.venue) : ''}${songs.length ? ' ・ ' + songs.length + '曲' : ''}</div>
+              <div class="card-meta">${formatDate(c.date)}${c.venue ? ' ・ ' + escapeHtml(c.venue) : ''}${songs.length ? ' ・ ' + songs.length + '曲' : ''}${c.pref && !String(c.venue || '').includes(c.pref)
+                ? `<span class="card-pref">${escapeHtml(c.pref)}</span>`
+                : ''}</div>
             </div>
             <div class="chevron">▶</div>
           </div>
@@ -1092,7 +1296,28 @@
   const fArtist = document.getElementById('fArtist');
   const fDate = document.getElementById('fDate');
   const fVenue = document.getElementById('fVenue');
+  const fPref = document.getElementById('fPref');
+  const fPrefHint = document.getElementById('fPrefHint');
   const fUrl = document.getElementById('fUrl');
+
+  const PREF_HINT_DEFAULT = '会場名から自動で候補を入れます。違っていれば選び直してください。';
+  fPref.innerHTML = '<option value="">選択なし</option>' +
+    PREFS.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  // 自分で選び直したあとは、会場名の入力で上書きしない
+  let prefTouched = false;
+  fPref.addEventListener('change', () => {
+    prefTouched = true;
+    fPrefHint.textContent = PREF_HINT_DEFAULT;
+  });
+
+  fVenue.addEventListener('input', () => {
+    if (prefTouched) return;
+    const guess = guessPref(fVenue.value);
+    if (!guess) return;
+    fPref.value = guess;
+    fPrefHint.textContent = `会場名から「${guess}」と判定しました。違っていれば選び直してください。`;
+  });
   const fSongs = document.getElementById('fSongs');
 
   // --- Spotify曲検索（セトリ入力の補助） ---
@@ -1104,6 +1329,54 @@
 
   const SP_NOT_CONNECTED = 'Spotifyに接続すると曲名の候補が出ます（⚙から接続）。';
 
+  // --- アーティスト名の候補 ---
+  const spArtistResults = document.getElementById('spArtistResults');
+  const spArtistNote = document.getElementById('spArtistNote');
+  let spArtistTimer = null;
+  let spArtistLast = [];
+
+  function clearArtistResults() {
+    spArtistResults.innerHTML = '';
+    spArtistResults.classList.remove('show');
+    spArtistLast = [];
+  }
+
+  fArtist.addEventListener('input', () => {
+    clearTimeout(spArtistTimer);
+    spArtistNote.textContent = '';
+    const q = fArtist.value.trim();
+    if (!q || !spToken) {
+      clearArtistResults();
+      return;
+    }
+    spArtistTimer = setTimeout(async () => {
+      const results = await spSearchArtists(q, 8);
+      if (fArtist.value.trim() !== q) return; // 入力が変わっていたら破棄
+      if (!results.length) {
+        clearArtistResults();
+        return;
+      }
+      spArtistLast = results;
+      spArtistResults.innerHTML = results.map((a, i) => `
+        <button type="button" class="sp-result" data-i="${i}">
+          ${a.art ? `<img src="${escapeHtml(a.art)}" alt="">` : '<span class="art"></span>'}
+          <span class="t"><b>${escapeHtml(a.name)}</b><span>${escapeHtml(a.sub)}</span></span>
+        </button>`).join('');
+      spArtistResults.classList.add('show');
+    }, 350);
+  });
+
+  spArtistResults.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sp-result');
+    if (!btn) return;
+    const a = spArtistLast[Number(btn.dataset.i)];
+    if (!a) return;
+    // 表記をSpotifyに合わせると、曲の絞り込み検索の精度も上がる
+    fArtist.value = a.name;
+    clearArtistResults();
+    spArtistNote.textContent = `アーティストを「${a.name}」にしました。`;
+  });
+
   function clearSpResults() {
     spResults.innerHTML = '';
     spResults.classList.remove('show');
@@ -1112,8 +1385,11 @@
 
   function resetSpotifySearch() {
     clearTimeout(spSearchTimer);
+    clearTimeout(spArtistTimer);
     spQuery.value = '';
     clearSpResults();
+    clearArtistResults();
+    spArtistNote.textContent = '';
     spNote.textContent = spToken ? '' : SP_NOT_CONNECTED;
   }
 
@@ -1171,6 +1447,9 @@
     modalTitle.textContent = 'ライブを追加';
     editIdInput.value = '';
     liveForm.reset();
+    fPref.value = '';
+    prefTouched = false;
+    fPrefHint.textContent = PREF_HINT_DEFAULT;
     resetSpotifySearch();
     modalOverlay.classList.add('show');
   }
@@ -1183,6 +1462,10 @@
     fArtist.value = c.artist || '';
     fDate.value = c.date || '';
     fVenue.value = c.venue || '';
+    // 既に都道府県が入っているなら、会場名の再入力で勝手に書き換えない
+    fPref.value = c.pref && PREFS.includes(c.pref) ? c.pref : '';
+    prefTouched = Boolean(fPref.value);
+    fPrefHint.textContent = PREF_HINT_DEFAULT;
     fUrl.value = c.url || '';
     fSongs.value = (c.songs || []).join('\n');
     resetSpotifySearch();
@@ -1191,6 +1474,7 @@
 
   function closeModal() {
     modalOverlay.classList.remove('show');
+    resetSpotifySearch();
   }
 
   document.getElementById('addFab').addEventListener('click', openAddModal);
@@ -1203,11 +1487,14 @@
     e.preventDefault();
     const id = editIdInput.value || String(Date.now());
     const songs = fSongs.value.split('\n').map(s => s.trim()).filter(Boolean);
+    const venue = fVenue.value.trim();
     const data = {
       id,
       artist: fArtist.value.trim(),
       date: fDate.value,
-      venue: fVenue.value.trim(),
+      venue,
+      // 未選択のまま保存された場合も、会場名から推定できれば入れておく
+      pref: fPref.value || guessPref(venue),
       url: fUrl.value.trim(),
       songs
     };
