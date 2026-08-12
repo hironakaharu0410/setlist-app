@@ -559,6 +559,334 @@
     margin-left: 6px;
     vertical-align: 1px;
   }
+
+  /* ===================== スマホ向けの見た目 ===================== */
+  :root {
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0b0d;
+      --card-bg: #17171b;
+      --border: #2b2b32;
+      --shadow: none;
+    }
+  }
+  body { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+
+  header { padding: calc(14px + env(safe-area-inset-top)) 16px 6px; }
+  h1 { font-size: 20px; letter-spacing: 0.02em; }
+  .title-row { margin-bottom: 10px; }
+  .sync-row { margin-bottom: 10px; }
+  .tabs { padding: 3px; border-radius: 12px; }
+  .tab-btn { padding: 9px 0; font-size: 13px; }
+
+  main { padding: 10px 14px; }
+  .search-input {
+    border-radius: 12px;
+    padding: 11px 14px;
+    margin-bottom: 8px;
+  }
+
+  /* 折りたたみ（絞り込み／自動入力ツール） */
+  .tools {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .tools > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 11px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+  }
+  .tools > summary::-webkit-details-marker { display: none; }
+  .tools > summary::after {
+    content: '▾';
+    margin-left: auto;
+    padding-left: 8px;
+    color: var(--sub-text);
+    font-size: 11px;
+    transition: transform 0.15s ease;
+  }
+  .tools[open] > summary::after { transform: rotate(180deg); }
+  .tools-body { padding: 0 14px 14px; }
+  .tools-body .btn-sl + .sp-note { margin-bottom: 12px; }
+  .tools-hint { font-size: 12px; color: var(--sub-text); margin: 0 0 10px; line-height: 1.55; }
+  .filters > summary { color: var(--sub-text); }
+  .filter-count {
+    margin: 0 0 0 auto;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--sub-text);
+    min-height: 0;
+  }
+  .filter-row { margin-bottom: 0; }
+
+  /* カード */
+  .card {
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 8px;
+  }
+  .card-head { gap: 12px; padding: 12px; align-items: center; }
+  .cover {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--border);
+  }
+  /* 「該当なし」表示の .empty とは別物なので、パディングを持たせない */
+  .cover-blank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: var(--sub-text);
+    font-size: 19px;
+    line-height: 1;
+  }
+  .card-artist { font-size: 15px; }
+  .card-tour {
+    font-size: 12px;
+    color: var(--text);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-meta {
+    font-size: 12px;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .song-pill {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sub-text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .chevron { font-size: 22px; line-height: 1; margin-left: 0; }
+  .card.open .chevron { transform: rotate(90deg); }
+  .card-body { padding: 2px 12px 12px; }
+
+  /* シート型モーダル（上下を固定して中身だけスクロール） */
+  .modal-overlay { background: rgba(0,0,0,0.55); }
+  .sheet {
+    padding: 0;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    overflow: hidden;
+  }
+  .sheet-inner {
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+  }
+  .sheet-head {
+    flex-shrink: 0;
+    padding: 8px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .grabber {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+    margin: 0 auto 10px;
+  }
+  .sheet-head h2 { margin: 0; font-size: 17px; text-align: center; }
+  .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 20px;
+  }
+  .sheet-foot {
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; min-width: 0; }
+  .song-search { margin-bottom: 8px; }
+  .sec-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--sub-text);
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+  }
+  .sp-section.first { border-top: none; margin-top: 0; padding-top: 0; }
+
+  .fab { box-shadow: 0 6px 20px rgba(0,0,0,0.28); }
+  .footer-actions { flex-direction: column; align-items: center; gap: 12px; }
+
+  /* ヘッダーの同期チップ */
+  .title-row { gap: 8px; }
+  h1 { flex: 1; min-width: 0; }
+  .sync-chip {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 999px;
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: transform 0.12s ease;
+  }
+  .sync-chip.ok { border-color: rgba(52,199,89,0.45); }
+  .sync-chip.err { border-color: rgba(255,59,48,0.55); }
+  .sync-chip.warn { border-color: rgba(255,149,0,0.5); }
+  .sync-chip.spin span { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sync-msg {
+    font-size: 11.5px;
+    color: var(--warn);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .sync-msg:empty { display: none; }
+
+  /* 実績サマリー */
+  .stats {
+    display: flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 4px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .stat {
+    flex: 1;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat b {
+    display: block;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .stat span {
+    font-size: 10.5px;
+    color: var(--sub-text);
+  }
+
+  /* 年ごとの見出し */
+  .year-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 2px 6px;
+  }
+  .year-head span {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .year-head em {
+    font-style: normal;
+    font-size: 11px;
+    color: var(--sub-text);
+  }
+  .year-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* 全曲一覧のランキング表示 */
+  .song-row-head { gap: 10px; }
+  .rank {
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--sub-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .rank.top { color: var(--accent); }
+  .song-main { flex: 1; min-width: 0; }
+  .song-row-head .song-name {
+    flex: none;
+    font-size: 14px;
+  }
+  .song-bar {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--border);
+    margin-top: 5px;
+    overflow: hidden;
+  }
+  .song-bar i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.75;
+  }
+  /* 1回だけの曲は控えめに、2回以上を目立たせる */
+  .song-count-badge {
+    margin-left: 0;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--sub-text);
+  }
+  .song-count-badge.multi {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* 触ったときの反応（スマホでは押した感触が重要） */
+  .card-head, .song-row-head, .tools > summary {
+    transition: background-color 0.12s ease;
+  }
+  .card-head:active, .song-row-head:active, .tools > summary:active {
+    background-color: rgba(127,127,127,0.12);
+  }
+  .btn, .btn-sl, .btn-sp, .tab-btn, .fab, .icon-btn, .sp-result, .filter-clear {
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .btn:active, .btn-sl:active, .btn-sp:active, .sp-result:active, .filter-clear:active {
+    transform: scale(0.985);
+    opacity: 0.85;
+  }
+  .tab-btn:active { opacity: 0.7; }
+  .fab:active, .sync-chip:active, .icon-btn:active { transform: scale(0.92); }
+  .card { transition: box-shadow 0.15s ease; }
+
+  /* 空のメッセージ欄が場所を取らないようにする */
+  .sp-note:empty { display: none; }
+  .field-hint:empty { display: none; }
+  .field { margin-bottom: 12px; }
+  .field textarea { min-height: 120px; }
+  .sheet-body .field label { margin-bottom: 5px; }
 </style>
 </head>
 <body>
@@ -566,12 +894,10 @@
 <header>
   <div class="title-row">
     <h1>マイセトリ帳</h1>
+    <button class="sync-chip" id="syncNowBtn" aria-label="同期する"><span id="syncStatus">☁️</span></button>
     <button class="icon-btn" id="settingsBtn" aria-label="設定">⚙️</button>
   </div>
-  <div class="sync-row">
-    <span class="sync-status" id="syncStatus">未設定</span>
-    <button class="sync-now-btn" id="syncNowBtn">🔄 同期</button>
-  </div>
+  <div class="sync-msg" id="syncMsg"></div>
   <div class="tabs">
     <button class="tab-btn active" data-tab="lives">ライブ一覧</button>
     <button class="tab-btn" data-tab="songs">全曲一覧</button>
@@ -580,13 +906,22 @@
 
 <main>
   <section id="tab-lives">
-    <input type="text" id="searchInput" class="search-input" placeholder="アーティスト・会場・日付（2026-05 など）で検索">
-    <div class="filter-row">
-      <select id="filterPref"></select>
-      <select id="filterYear"></select>
-      <button type="button" class="filter-clear" id="filterClear">クリア</button>
+    <div class="stats" id="stats">
+      <div class="stat"><b id="statLives">0</b><span>ライブ</span></div>
+      <div class="stat"><b id="statArtists">0</b><span>アーティスト</span></div>
+      <div class="stat"><b id="statSongs">0</b><span>曲</span></div>
     </div>
-    <div class="filter-count" id="filterCount"></div>
+    <input type="text" id="searchInput" class="search-input" placeholder="🔍 アーティスト・会場・日付">
+    <details class="tools filters">
+      <summary>絞り込み<span class="filter-count" id="filterCount"></span></summary>
+      <div class="tools-body">
+        <div class="filter-row">
+          <select id="filterPref"></select>
+          <select id="filterYear"></select>
+          <button type="button" class="filter-clear" id="filterClear">クリア</button>
+        </div>
+      </div>
+    </details>
     <div id="livesList"></div>
   </section>
 
@@ -607,63 +942,76 @@
 <button class="fab" id="addFab">＋</button>
 
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
-    <h2 id="modalTitle">ライブを追加</h2>
-    <form id="liveForm">
-      <input type="hidden" id="editId">
-      <div class="field">
-        <label>アーティスト名 *</label>
-        <input type="text" id="fArtist" required autocomplete="off">
-        <div class="sp-results" id="spArtistResults"></div>
-        <div class="sp-note" id="spArtistNote"></div>
+  <div class="modal sheet">
+    <form id="liveForm" class="sheet-inner">
+      <div class="sheet-head">
+        <div class="grabber"></div>
+        <h2 id="modalTitle">ライブを追加</h2>
       </div>
-      <div class="field">
-        <label>ライブ名・ツアー名</label>
-        <input type="text" id="fTitle" placeholder="例: THE FIRST TAKE STAGE">
+      <div class="sheet-body">
+        <input type="hidden" id="editId">
+
+        <details class="tools" id="autoTools">
+          <summary>公演を検索して自動入力</summary>
+          <div class="tools-body">
+            <p class="tools-hint">日付（と都道府県）を入れてから押すと、その日の公演一覧から選べます。</p>
+            <button type="button" class="btn-sl" id="slFetchBtn">📅 この日付の公演を探す</button>
+            <div class="sp-results" id="slResults"></div>
+            <div class="sp-note" id="slNote"></div>
+          </div>
+        </details>
+
+        <div class="field">
+          <label>アーティスト名 *</label>
+          <input type="text" id="fArtist" required autocomplete="off">
+          <div class="sp-results" id="spArtistResults"></div>
+          <div class="sp-note" id="spArtistNote"></div>
+        </div>
+        <div class="field">
+          <label>ライブ名・ツアー名</label>
+          <input type="text" id="fTitle" placeholder="例: ARENA TOUR 2026">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>日付 *</label>
+            <input type="date" id="fDate" required>
+          </div>
+          <div class="field">
+            <label>都道府県</label>
+            <select id="fPref"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>会場</label>
+          <input type="text" id="fVenue" placeholder="例: 東京ドーム">
+          <div class="field-hint" id="fPrefHint">会場名から都道府県を自動入力します</div>
+        </div>
+
+        <div class="field">
+          <label>セトリ（1行に1曲）</label>
+          <input type="text" id="spQuery" class="song-search" placeholder="🔍 Spotifyで曲名を検索して追加" autocomplete="off">
+          <div class="sp-results" id="spResults"></div>
+          <div class="sp-note" id="spNote"></div>
+          <textarea id="fSongs" placeholder="曲名1&#10;曲名2&#10;曲名3"></textarea>
+        </div>
+
+        <details class="tools">
+          <summary>セトリを整える・曲名を直す</summary>
+          <div class="tools-body">
+            <button type="button" class="btn-sl" id="tidyBtn">📋 貼り付けたセトリを整える</button>
+            <div class="sp-note" id="tidyNote">他サイトからコピーした番号付きのセトリを、1行1曲に整えます。</div>
+            <button type="button" class="btn-sl" id="jpFixBtn">🇯🇵 曲名を日本語表記に直す</button>
+            <div class="sp-results" id="jpResults"></div>
+            <div class="sp-note" id="jpNote"></div>
+          </div>
+        </details>
+
+        <div class="field">
+          <label>参考リンク</label>
+          <input type="url" id="fUrl" placeholder="https://...">
+        </div>
       </div>
-      <div class="field">
-        <label>日付 *</label>
-        <input type="date" id="fDate" required>
-      </div>
-      <div class="field">
-        <label>会場</label>
-        <input type="text" id="fVenue" placeholder="例: 東京ドーム">
-      </div>
-      <div class="field">
-        <label>都道府県</label>
-        <select id="fPref"></select>
-        <div class="field-hint" id="fPrefHint">会場名から自動で候補を入れます。違っていれば選び直してください。</div>
-      </div>
-      <div class="field">
-        <button type="button" class="btn-sl" id="slFetchBtn">📅 この日付の公演を探して自動入力</button>
-        <div class="sp-results" id="slResults"></div>
-        <div class="sp-note" id="slNote"></div>
-      </div>
-      <div class="field">
-        <label>参考リンク（livefans.jp のページなど）</label>
-        <input type="url" id="fUrl" placeholder="https://www.livefans.jp/...">
-        <div class="field-hint">livefans.jpでセトリを確認しながら、下の欄に自分で入力してください</div>
-      </div>
-      <div class="field">
-        <label>Spotifyで曲を探して追加</label>
-        <input type="text" id="spQuery" placeholder="曲名を入力すると候補が出ます" autocomplete="off">
-        <div class="sp-results" id="spResults"></div>
-        <div class="sp-note" id="spNote"></div>
-      </div>
-      <div class="field">
-        <label>セトリ（1行に1曲）</label>
-        <textarea id="fSongs" placeholder="曲名1&#10;曲名2&#10;曲名3"></textarea>
-      </div>
-      <div class="field">
-        <button type="button" class="btn-sl" id="tidyBtn">📋 貼り付けたセトリを整える</button>
-        <div class="sp-note" id="tidyNote">他サイトからコピーした番号付きのセトリを、1行1曲に整えます。</div>
-      </div>
-      <div class="field">
-        <button type="button" class="btn-sl" id="jpFixBtn">🇯🇵 曲名を日本語表記に直す</button>
-        <div class="sp-results" id="jpResults"></div>
-        <div class="sp-note" id="jpNote"></div>
-      </div>
-      <div class="modal-buttons">
+      <div class="sheet-foot">
         <button type="button" class="btn btn-secondary" id="cancelBtn">キャンセル</button>
         <button type="submit" class="btn btn-primary" id="saveBtn">保存</button>
       </div>
@@ -672,34 +1020,44 @@
 </div>
 
 <div class="modal-overlay" id="settingsOverlay">
-  <div class="modal">
-    <h2>GitHub連携設定</h2>
-    <div class="modal-error" id="settingsError"></div>
-    <div class="field">
-      <label>GitHubユーザー名</label>
-      <input type="text" id="ghOwner" placeholder="例: haruto-hironaka">
-    </div>
-    <div class="field">
-      <label>リポジトリ名</label>
-      <input type="text" id="ghRepo" placeholder="例: setlist-data">
-    </div>
-    <div class="field">
-      <label>Personal Access Token</label>
-      <input type="password" id="ghToken" placeholder="github_pat_...">
-      <div class="field-hint">この端末のブラウザ内にのみ保存されます。他の端末にも同じ設定を入力してください。</div>
-    </div>
-    <div class="modal-buttons">
-      <button type="button" class="btn btn-secondary" id="settingsCancelBtn">キャンセル</button>
-      <button type="button" class="btn btn-primary" id="settingsSaveBtn">保存して接続確認</button>
-    </div>
-    <div class="sp-section">
-      <label style="display:block;font-size:13px;color:var(--sub-text);margin-bottom:6px;">Spotify連携</label>
-      <div class="sp-row">
-        <span class="sp-state" id="spState">未接続</span>
-        <button type="button" class="btn-sp" id="spConnectBtn">接続する</button>
-        <button type="button" class="btn-sp secondary" id="spDisconnectBtn" style="display:none;">解除</button>
+  <div class="modal sheet">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <div class="grabber"></div>
+        <h2>設定</h2>
       </div>
-      <div class="field-hint">接続すると、曲名の検索候補とアルバムアートが使えます。上のGitHub設定とは独立していて、「保存して接続確認」を押す必要はありません。</div>
+      <div class="sheet-body">
+        <div class="modal-error" id="settingsError"></div>
+        <div class="sp-section first">
+          <div class="sec-title">Spotify連携</div>
+          <div class="sp-row">
+            <span class="sp-state" id="spState">未接続</span>
+            <button type="button" class="btn-sp" id="spConnectBtn">接続する</button>
+            <button type="button" class="btn-sp secondary" id="spDisconnectBtn" style="display:none;">解除</button>
+          </div>
+          <div class="field-hint">曲名の検索候補とアルバムアートに使います。下のGitHub設定とは独立していて、「保存して接続確認」は不要です。</div>
+        </div>
+        <div class="sp-section">
+          <div class="sec-title">GitHub同期（端末間でデータを共有）</div>
+          <div class="field">
+            <label>GitHubユーザー名</label>
+            <input type="text" id="ghOwner" placeholder="例: hironakaharu0410">
+          </div>
+          <div class="field">
+            <label>リポジトリ名</label>
+            <input type="text" id="ghRepo" placeholder="例: setlist-data">
+          </div>
+          <div class="field">
+            <label>Personal Access Token</label>
+            <input type="password" id="ghToken" placeholder="github_pat_...">
+            <div class="field-hint">この端末のブラウザ内にのみ保存されます。端末ごとに1回入力が必要です。</div>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-secondary" id="settingsCancelBtn">閉じる</button>
+        <button type="button" class="btn btn-primary" id="settingsSaveBtn">保存して接続確認</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1190,24 +1548,52 @@
   const tabSongs = document.getElementById('tab-songs');
   const syncStatus = document.getElementById('syncStatus');
   const syncNowBtn = document.getElementById('syncNowBtn');
+  const syncMsg = document.getElementById('syncMsg');
+  const stats = document.getElementById('stats');
+  const statLives = document.getElementById('statLives');
+  const statArtists = document.getElementById('statArtists');
+  const statSongs = document.getElementById('statSongs');
   const saveBtn = document.getElementById('saveBtn');
 
+  // 状態はヘッダーのチップ（アイコン）で示し、対応が必要なときだけ下に文章を出す
   function setStatus(state, message) {
-    syncStatus.classList.remove('ok', 'warn', 'err');
+    syncNowBtn.classList.remove('ok', 'warn', 'err', 'spin');
     if (!githubConfig) {
-      syncStatus.textContent = '未設定（⚙から設定してください）';
-      syncStatus.classList.add('warn');
+      syncStatus.textContent = '⚙';
+      syncNowBtn.classList.add('warn');
+      syncMsg.textContent = '端末間で共有するには ⚙ から同期を設定してください';
       return;
     }
     if (state === 'syncing') {
-      syncStatus.textContent = '🔄 同期中...';
-    } else if (state === 'synced') {
-      syncStatus.textContent = '☁️ 同期済み';
-      syncStatus.classList.add('ok');
+      syncStatus.textContent = '🔄';
+      syncNowBtn.classList.add('spin');
+      syncMsg.textContent = '';
     } else if (state === 'error') {
-      syncStatus.textContent = `⚠️ 同期エラー: ${message || ''}`;
-      syncStatus.classList.add('err');
+      syncStatus.textContent = '⚠️';
+      syncNowBtn.classList.add('err');
+      syncMsg.textContent = `同期エラー: ${message || ''}`;
+    } else {
+      syncStatus.textContent = '☁️';
+      syncNowBtn.classList.add('ok');
+      syncMsg.textContent = '';
     }
+  }
+
+  // 溜まってきた実感が出るように、全体の数を出す
+  function updateStats() {
+    const artists = new Set();
+    const songs = new Set();
+    concerts.forEach(c => {
+      if (c.artist) artists.add(c.artist.trim().toLowerCase());
+      (c.songs || []).forEach(s => {
+        const k = String(s).trim();
+        if (k) songs.add(k);
+      });
+    });
+    statLives.textContent = concerts.length;
+    statArtists.textContent = artists.size;
+    statSongs.textContent = songs.size;
+    stats.style.display = concerts.length ? '' : 'none';
   }
 
   async function ghContentsUrl() {
@@ -1361,6 +1747,7 @@
 
   function renderLives() {
     refreshFilterOptions();
+    updateStats();
     const term = searchTerm.toLowerCase();
     const prefSel = filterPref.value;
     const yearSel = filterYear.value;
@@ -1380,8 +1767,8 @@
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     filterCount.textContent = hasFilter
-      ? `${filtered.length}件 / 全${concerts.length}件`
-      : (concerts.length ? `全${concerts.length}件` : '');
+      ? `${filtered.length} / ${concerts.length}件`
+      : (concerts.length ? `${concerts.length}件` : '');
 
     if (filtered.length === 0) {
       livesList.innerHTML = `<div class="empty">${concerts.length === 0
@@ -1390,22 +1777,28 @@
       return;
     }
 
-    livesList.innerHTML = filtered.map(c => {
+    const cardHtml = (c) => {
       const isOpen = openCardId === c.id;
       const songs = c.songs || [];
+      // カードの顔になる画像は、セトリの中で最初にアートが取れている曲のもの
+      const cover = songs.map(s => artFor(s, c.artist)).find(Boolean) || '';
+      // 会場があれば都道府県は省く（1行に収めるため。都道府県は絞り込みで使える）
+      const place = c.venue || c.pref || '';
       return `
         <div class="card ${isOpen ? 'open' : ''}" data-id="${c.id}">
           <div class="card-head" data-action="toggle">
+            ${cover
+              ? `<img class="cover" src="${escapeHtml(cover)}" alt="" loading="lazy">`
+              : '<span class="cover cover-blank">♪</span>'}
             <div class="info">
               <div class="card-artist">${escapeHtml(c.artist)}</div>
-              <div class="card-meta">${formatDate(c.date)}${c.venue ? ' ・ ' + escapeHtml(c.venue) : ''}${songs.length ? ' ・ ' + songs.length + '曲' : ''}${c.pref && !String(c.venue || '').includes(c.pref)
-                ? `<span class="card-pref">${escapeHtml(c.pref)}</span>`
-                : ''}</div>
+              ${c.title ? `<div class="card-tour">${escapeHtml(c.title)}</div>` : ''}
+              <div class="card-meta">${formatDate(c.date)}${place ? ' ・ ' + escapeHtml(place) : ''}</div>
             </div>
-            <div class="chevron">▶</div>
+            ${songs.length ? `<span class="song-pill">${songs.length}</span>` : ''}
+            <div class="chevron">›</div>
           </div>
           <div class="card-body">
-            ${c.title ? `<div class="card-title">${escapeHtml(c.title)}</div>` : ''}
             ${c.url ? `<a class="ref-link" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">参考リンクを開く</a><br>` : ''}
             ${songs.length
               ? `<ol class="song-list">${songs.map((s, i) => {
@@ -1422,7 +1815,24 @@
             </div>
           </div>
         </div>`;
-    }).join('');
+    };
+
+    // 年ごとの見出しを挟んで、履歴として辿りやすくする
+    const yearOf = (c) => String(c.date || '').slice(0, 4) || '不明';
+    const perYear = {};
+    filtered.forEach(c => { perYear[yearOf(c)] = (perYear[yearOf(c)] || 0) + 1; });
+
+    let html = '';
+    let lastYear = null;
+    filtered.forEach(c => {
+      const y = yearOf(c);
+      if (y !== lastYear) {
+        html += `<div class="year-head"><span>${escapeHtml(y === '不明' ? '日付未設定' : y + '年')}</span><em>${perYear[y]}本</em></div>`;
+        lastYear = y;
+      }
+      html += cardHtml(c);
+    });
+    livesList.innerHTML = html;
   }
 
   livesList.addEventListener('click', async (e) => {
@@ -1465,19 +1875,27 @@
       return;
     }
 
-    songsList.innerHTML = entries.map(([song, occurrences]) => {
+    // 回数バーの基準になる最多回数
+    const maxCount = entries[0][1].length;
+
+    songsList.innerHTML = entries.map(([song, occurrences], idx) => {
       const isOpen = openSongKey === song;
       const hint = occurrences[0] ? occurrences[0].artist : '';
       const art = artFor(song, hint);
       if (!art) queueArtLookup(song, hint);
+      const pct = Math.max(6, Math.round((occurrences.length / maxCount) * 100));
       return `
         <div class="song-row ${isOpen ? 'open' : ''}" data-song="${escapeHtml(song)}">
           <div class="song-row-head" data-action="toggle">
+            <span class="rank ${idx < 3 ? 'top' : ''}">${idx + 1}</span>
             ${art
               ? `<img class="art" src="${escapeHtml(art)}" alt="" loading="lazy">`
               : '<span class="art"></span>'}
-            <div class="song-name">${escapeHtml(song)}</div>
-            <div class="song-count-badge">${occurrences.length}</div>
+            <div class="song-main">
+              <div class="song-name">${escapeHtml(song)}</div>
+              ${occurrences.length > 1 ? `<div class="song-bar"><i style="width:${pct}%"></i></div>` : ''}
+            </div>
+            <div class="song-count-badge ${occurrences.length > 1 ? 'multi' : ''}">${occurrences.length}</div>
           </div>
           <div class="song-detail">
             ${occurrences
@@ -1511,7 +1929,7 @@
   const fPrefHint = document.getElementById('fPrefHint');
   const fUrl = document.getElementById('fUrl');
 
-  const PREF_HINT_DEFAULT = '会場名から自動で候補を入れます。違っていれば選び直してください。';
+  const PREF_HINT_DEFAULT = '会場名から都道府県を自動入力します';
   fPref.innerHTML = '<option value="">選択なし</option>' +
     PREFS.map(p => `<option value="${p}">${p}</option>`).join('');
 
@@ -1527,7 +1945,7 @@
     const guess = guessPref(fVenue.value);
     if (!guess) return;
     fPref.value = guess;
-    fPrefHint.textContent = `会場名から「${guess}」と判定しました。違っていれば選び直してください。`;
+    fPrefHint.textContent = `会場名から「${guess}」と判定しました（違えば選び直せます）`;
   });
   const fSongs = document.getElementById('fSongs');
 
@@ -1538,7 +1956,7 @@
   let spSearchTimer = null;
   let spLastResults = [];
 
-  const SP_NOT_CONNECTED = 'Spotifyに接続すると曲名の候補が出ます（⚙から接続）。';
+  const SP_NOT_CONNECTED = '⚙からSpotifyに接続すると候補が出ます';
 
   // --- アーティスト名の候補 ---
   const spArtistResults = document.getElementById('spArtistResults');
