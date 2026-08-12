@@ -325,6 +325,128 @@
   .btn-primary:disabled { opacity: 0.5; }
   .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
   input[type="file"] { display: none; }
+
+  /* --- Spotify連携 --- */
+  .art {
+    width: 34px;
+    height: 34px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background: var(--border);
+    object-fit: cover;
+    display: inline-block;
+  }
+  .song-list {
+    list-style: none;
+    padding-left: 0;
+    line-height: 1.5;
+  }
+  .song-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 0;
+  }
+  .song-list .num {
+    width: 18px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 12px;
+    color: var(--sub-text);
+  }
+  .song-list .nm {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .song-row-head .art { margin-right: 10px; }
+  .song-row-head .song-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sp-section {
+    border-top: 1px solid var(--border);
+    margin-top: 18px;
+    padding-top: 14px;
+  }
+  .sp-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sp-state {
+    flex: 1;
+    font-size: 13px;
+    color: var(--sub-text);
+  }
+  .sp-state.ok { color: var(--ok); }
+  .btn-sp {
+    background: #1db954;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .btn-sp.secondary {
+    background: transparent;
+    color: var(--sub-text);
+    border: 1px solid var(--border);
+  }
+  .sp-results {
+    display: none;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    overflow: hidden;
+  }
+  .sp-results.show { display: block; }
+  .sp-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sp-result:last-child { border-bottom: none; }
+  .sp-result img { width: 38px; height: 38px; border-radius: 5px; flex-shrink: 0; object-fit: cover; }
+  .sp-result .t { flex: 1; min-width: 0; }
+  .sp-result .t b {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sp-result .t span {
+    display: block;
+    font-size: 12px;
+    color: var(--sub-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sp-note {
+    font-size: 12px;
+    color: var(--sub-text);
+    margin-top: 6px;
+    min-height: 16px;
+  }
 </style>
 </head>
 <body>
@@ -386,6 +508,12 @@
         <div class="field-hint">livefans.jpでセトリを確認しながら、下の欄に自分で入力してください</div>
       </div>
       <div class="field">
+        <label>Spotifyで曲を探して追加</label>
+        <input type="text" id="spQuery" placeholder="曲名を入力すると候補が出ます" autocomplete="off">
+        <div class="sp-results" id="spResults"></div>
+        <div class="sp-note" id="spNote"></div>
+      </div>
+      <div class="field">
         <label>セトリ（1行に1曲）</label>
         <textarea id="fSongs" placeholder="曲名1&#10;曲名2&#10;曲名3"></textarea>
       </div>
@@ -417,6 +545,15 @@
     <div class="modal-buttons">
       <button type="button" class="btn btn-secondary" id="settingsCancelBtn">キャンセル</button>
       <button type="button" class="btn btn-primary" id="settingsSaveBtn">保存して接続確認</button>
+    </div>
+    <div class="sp-section">
+      <label style="display:block;font-size:13px;color:var(--sub-text);margin-bottom:6px;">Spotify連携</label>
+      <div class="sp-row">
+        <span class="sp-state" id="spState">未接続</span>
+        <button type="button" class="btn-sp" id="spConnectBtn">接続する</button>
+        <button type="button" class="btn-sp secondary" id="spDisconnectBtn" style="display:none;">解除</button>
+      </div>
+      <div class="field-hint">接続すると、曲名の検索候補とアルバムアートが使えます。上のGitHub設定とは独立していて、「保存して接続確認」を押す必要はありません。</div>
     </div>
   </div>
 </div>
@@ -459,6 +596,221 @@
 
   function b64DecodeUnicode(str) {
     return decodeURIComponent(atob(str.replace(/\n/g, '')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  }
+
+  // ---------- Spotify ----------
+  // Client IDは秘密の値ではない（PKCE方式では公開が前提）。Client Secretは使わない。
+  const SP_CLIENT_ID = '8a8786cf633a41af933ad9375edefd71';
+  const SP_TOKEN_KEY = 'setlistApp.spotify.token';
+  const SP_VERIFIER_KEY = 'setlistApp.spotify.verifier';
+  const SP_CACHE_KEY = 'setlistApp.spotify.trackCache';
+
+  // Spotifyに登録したRedirect URIと完全一致させる（index.html付きで開かれた場合も揃える）
+  function spRedirectUri() {
+    return (location.origin + location.pathname).replace(/index\.html$/, '');
+  }
+
+  function spLoadToken() {
+    try {
+      const raw = localStorage.getItem(SP_TOKEN_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  let spToken = spLoadToken();
+
+  // 曲名 → Spotifyのトラック情報。端末ごとのキャッシュで、data.jsonには入れない
+  let trackCache = (function () {
+    try {
+      const raw = localStorage.getItem(SP_CACHE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  })();
+
+  function persistTrackCache() {
+    try {
+      localStorage.setItem(SP_CACHE_KEY, JSON.stringify(trackCache));
+    } catch (e) { /* 容量超過時は諦める（次回引き直せばよい） */ }
+  }
+
+  function cacheKey(song, artistHint) {
+    return `${String(artistHint || '').toLowerCase()}::${String(song).trim().toLowerCase()}`;
+  }
+
+  function artFor(song, artistHint) {
+    const t = trackCache[cacheKey(song, artistHint)];
+    return t && t.art ? t.art : '';
+  }
+
+  function randomString(len) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const bytes = new Uint8Array(len);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => chars[b % chars.length]).join('');
+  }
+
+  function base64Url(buf) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function spStartAuth() {
+    const verifier = randomString(64);
+    localStorage.setItem(SP_VERIFIER_KEY, verifier);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const params = new URLSearchParams({
+      client_id: SP_CLIENT_ID,
+      response_type: 'code',
+      redirect_uri: spRedirectUri(),
+      code_challenge_method: 'S256',
+      code_challenge: base64Url(digest)
+    });
+    location.href = `https://accounts.spotify.com/authorize?${params}`;
+  }
+
+  async function spExchangeCode(code) {
+    const verifier = localStorage.getItem(SP_VERIFIER_KEY);
+    if (!verifier) throw new Error('認証情報が見つかりませんでした。もう一度接続してください。');
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: spRedirectUri(),
+        client_id: SP_CLIENT_ID,
+        code_verifier: verifier
+      })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error_description || body.error || `トークン取得に失敗(${res.status})`);
+    localStorage.removeItem(SP_VERIFIER_KEY);
+    spToken = {
+      access: body.access_token,
+      refresh: body.refresh_token,
+      expiresAt: Date.now() + (body.expires_in - 60) * 1000
+    };
+    localStorage.setItem(SP_TOKEN_KEY, JSON.stringify(spToken));
+  }
+
+  async function spRefresh() {
+    if (!spToken || !spToken.refresh) return null;
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: spToken.refresh,
+        client_id: SP_CLIENT_ID
+      })
+    });
+    if (!res.ok) {
+      spToken = null;
+      localStorage.removeItem(SP_TOKEN_KEY);
+      updateSpotifyUi();
+      return null;
+    }
+    const body = await res.json();
+    spToken = {
+      access: body.access_token,
+      refresh: body.refresh_token || spToken.refresh,
+      expiresAt: Date.now() + (body.expires_in - 60) * 1000
+    };
+    localStorage.setItem(SP_TOKEN_KEY, JSON.stringify(spToken));
+    return spToken.access;
+  }
+
+  async function spAccessToken() {
+    if (!spToken) return null;
+    if (Date.now() < spToken.expiresAt) return spToken.access;
+    return await spRefresh();
+  }
+
+  let spBackoffUntil = 0;
+
+  async function spApi(path) {
+    if (Date.now() < spBackoffUntil) return null;
+    const token = await spAccessToken();
+    if (!token) return null;
+    const url = `https://api.spotify.com/v1${path}`;
+    let res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res.status === 401) {
+      const fresh = await spRefresh();
+      if (!fresh) return null;
+      res = await fetch(url, { headers: { 'Authorization': `Bearer ${fresh}` } });
+    }
+    if (res.status === 429) {
+      const wait = parseInt(res.headers.get('Retry-After') || '5', 10);
+      spBackoffUntil = Date.now() + (wait + 1) * 1000;
+      return null;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
+  function trackFromItem(item) {
+    const images = (item.album && item.album.images) || [];
+    const thumb = images[images.length - 1] || images[0] || null;
+    return {
+      name: item.name,
+      artists: (item.artists || []).map(a => a.name).join(', '),
+      album: item.album ? item.album.name : '',
+      art: thumb ? thumb.url : ''
+    };
+  }
+
+  // アーティスト名を絞り込みに使うと精度が上がる。0件ならアーティスト指定なしで引き直す
+  async function spSearchTracks(query, artistHint, limit) {
+    const q = String(query || '').trim();
+    if (!q) return [];
+    const lim = String(limit || 8);
+    const attempts = artistHint
+      ? [`track:"${q}" artist:"${artistHint}"`, q]
+      : [q];
+    for (const term of attempts) {
+      const data = await spApi(`/search?${new URLSearchParams({ q: term, type: 'track', limit: lim })}`);
+      const items = (data && data.tracks && data.tracks.items) || [];
+      if (items.length) return items.map(trackFromItem);
+    }
+    return [];
+  }
+
+  // 既存の曲名からアルバムアートを後追いで取得する（1件ずつ、キャッシュ済みはスキップ）
+  const artQueue = [];
+  const artQueued = new Set();
+  let artWorking = false;
+
+  function queueArtLookup(song, artistHint) {
+    if (!spToken) return;
+    const key = cacheKey(song, artistHint);
+    if (trackCache[key] !== undefined || artQueued.has(key)) return;
+    artQueued.add(key);
+    artQueue.push({ song, artistHint, key });
+    if (!artWorking) runArtQueue();
+  }
+
+  async function runArtQueue() {
+    artWorking = true;
+    let found = 0;
+    while (artQueue.length) {
+      if (!(await spAccessToken())) break;
+      const job = artQueue.shift();
+      const results = await spSearchTracks(job.song, job.artistHint, 1);
+      // 見つからない場合もnullを入れて、毎回引き直さないようにする
+      trackCache[job.key] = results[0] || null;
+      if (results[0]) found++;
+      if (Date.now() < spBackoffUntil) break;
+    }
+    artWorking = false;
+    persistTrackCache();
+    if (found) {
+      renderLives();
+      if (tabSongs.style.display !== 'none') renderSongs();
+    }
   }
 
   let concerts = loadLocalCache();
@@ -642,7 +994,13 @@
           <div class="card-body">
             ${c.url ? `<a class="ref-link" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">参考リンクを開く</a><br>` : ''}
             ${songs.length
-              ? `<ol class="song-list">${songs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`
+              ? `<ol class="song-list">${songs.map((s, i) => {
+                  const art = artFor(s, c.artist);
+                  if (!art) queueArtLookup(s, c.artist);
+                  return `<li><span class="num">${i + 1}</span>${art
+                    ? `<img class="art" src="${escapeHtml(art)}" alt="" loading="lazy">`
+                    : '<span class="art"></span>'}<span class="nm">${escapeHtml(s)}</span></li>`;
+                }).join('')}</ol>`
               : '<div class="field-hint">セトリ未登録</div>'}
             <div class="card-actions">
               <button class="link-btn" data-action="edit">編集</button>
@@ -695,9 +1053,15 @@
 
     songsList.innerHTML = entries.map(([song, occurrences]) => {
       const isOpen = openSongKey === song;
+      const hint = occurrences[0] ? occurrences[0].artist : '';
+      const art = artFor(song, hint);
+      if (!art) queueArtLookup(song, hint);
       return `
         <div class="song-row ${isOpen ? 'open' : ''}" data-song="${escapeHtml(song)}">
           <div class="song-row-head" data-action="toggle">
+            ${art
+              ? `<img class="art" src="${escapeHtml(art)}" alt="" loading="lazy">`
+              : '<span class="art"></span>'}
             <div class="song-name">${escapeHtml(song)}</div>
             <div class="song-count-badge">${occurrences.length}</div>
           </div>
@@ -731,10 +1095,83 @@
   const fUrl = document.getElementById('fUrl');
   const fSongs = document.getElementById('fSongs');
 
+  // --- Spotify曲検索（セトリ入力の補助） ---
+  const spQuery = document.getElementById('spQuery');
+  const spResults = document.getElementById('spResults');
+  const spNote = document.getElementById('spNote');
+  let spSearchTimer = null;
+  let spLastResults = [];
+
+  const SP_NOT_CONNECTED = 'Spotifyに接続すると曲名の候補が出ます（⚙から接続）。';
+
+  function clearSpResults() {
+    spResults.innerHTML = '';
+    spResults.classList.remove('show');
+    spLastResults = [];
+  }
+
+  function resetSpotifySearch() {
+    clearTimeout(spSearchTimer);
+    spQuery.value = '';
+    clearSpResults();
+    spNote.textContent = spToken ? '' : SP_NOT_CONNECTED;
+  }
+
+  spQuery.addEventListener('input', () => {
+    clearTimeout(spSearchTimer);
+    const q = spQuery.value.trim();
+    if (!q) {
+      clearSpResults();
+      spNote.textContent = spToken ? '' : SP_NOT_CONNECTED;
+      return;
+    }
+    if (!spToken) {
+      spNote.textContent = SP_NOT_CONNECTED;
+      return;
+    }
+    // 1文字ごとに叩かないよう、入力が止まってから検索する
+    spSearchTimer = setTimeout(async () => {
+      spNote.textContent = '検索中...';
+      const results = await spSearchTracks(q, fArtist.value.trim(), 8);
+      if (spQuery.value.trim() !== q) return; // 入力が変わっていたら破棄
+      if (!results.length) {
+        clearSpResults();
+        spNote.textContent = '見つかりませんでした。下の欄に手入力でも登録できます。';
+        return;
+      }
+      spLastResults = results;
+      spNote.textContent = '';
+      spResults.innerHTML = results.map((t, i) => `
+        <button type="button" class="sp-result" data-i="${i}">
+          ${t.art ? `<img src="${escapeHtml(t.art)}" alt="">` : '<span class="art"></span>'}
+          <span class="t"><b>${escapeHtml(t.name)}</b><span>${escapeHtml(t.artists)}</span></span>
+        </button>`).join('');
+      spResults.classList.add('show');
+    }, 350);
+  });
+
+  spResults.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sp-result');
+    if (!btn) return;
+    const t = spLastResults[Number(btn.dataset.i)];
+    if (!t) return;
+    const lines = fSongs.value.split('\n').map(s => s.trim()).filter(Boolean);
+    lines.push(t.name);
+    fSongs.value = lines.join('\n') + '\n';
+    fSongs.scrollTop = fSongs.scrollHeight;
+    // 選んだ曲の情報をキャッシュしておけば、あとで検索し直さずアートが出る
+    trackCache[cacheKey(t.name, fArtist.value.trim())] = t;
+    persistTrackCache();
+    spQuery.value = '';
+    clearSpResults();
+    spNote.textContent = `「${t.name}」を追加しました。`;
+  });
+
   function openAddModal() {
     modalTitle.textContent = 'ライブを追加';
     editIdInput.value = '';
     liveForm.reset();
+    resetSpotifySearch();
     modalOverlay.classList.add('show');
   }
 
@@ -748,6 +1185,7 @@
     fVenue.value = c.venue || '';
     fUrl.value = c.url || '';
     fSongs.value = (c.songs || []).join('\n');
+    resetSpotifySearch();
     modalOverlay.classList.add('show');
   }
 
@@ -793,9 +1231,40 @@
   const ghRepo = document.getElementById('ghRepo');
   const ghToken = document.getElementById('ghToken');
   const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+  const spState = document.getElementById('spState');
+  const spConnectBtn = document.getElementById('spConnectBtn');
+  const spDisconnectBtn = document.getElementById('spDisconnectBtn');
+
+  function updateSpotifyUi() {
+    if (spToken) {
+      spState.textContent = '✅ 接続済み';
+      spState.classList.add('ok');
+      spConnectBtn.style.display = 'none';
+      spDisconnectBtn.style.display = '';
+    } else {
+      spState.textContent = '未接続';
+      spState.classList.remove('ok');
+      spConnectBtn.style.display = '';
+      spDisconnectBtn.style.display = 'none';
+    }
+  }
+
+  spConnectBtn.addEventListener('click', () => {
+    spStartAuth().catch(e => {
+      settingsError.textContent = `Spotifyへの接続を開始できませんでした: ${e.message}`;
+      settingsError.classList.add('show');
+    });
+  });
+
+  spDisconnectBtn.addEventListener('click', () => {
+    spToken = null;
+    localStorage.removeItem(SP_TOKEN_KEY);
+    updateSpotifyUi();
+  });
 
   function openSettingsModal() {
     settingsError.classList.remove('show');
+    updateSpotifyUi();
     if (githubConfig) {
       ghOwner.value = githubConfig.owner || '';
       ghRepo.value = githubConfig.repo || '';
@@ -904,7 +1373,29 @@
     reader.readAsText(file);
   });
 
+  // Spotifyの認証画面から戻ってきたときの処理
+  async function handleSpotifyRedirect() {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    if (!code && !error) return;
+    // 認証コードをアドレスバーに残さない
+    history.replaceState({}, '', spRedirectUri());
+    if (error) {
+      alert(`Spotify連携が完了しませんでした: ${error}`);
+      return;
+    }
+    try {
+      await spExchangeCode(code);
+      artQueued.clear(); // 未接続で諦めた分を引き直せるようにする
+    } catch (e) {
+      alert(`Spotify連携に失敗しました: ${e.message}`);
+    }
+  }
+
   (async function init() {
+    await handleSpotifyRedirect();
+    updateSpotifyUi();
     setStatus();
     renderLives();
     if (githubConfig) {
